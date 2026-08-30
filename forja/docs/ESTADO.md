@@ -1,6 +1,6 @@
 # ESTADO.md — Bitácora del proyecto
 
-Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-07-18.
+Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-08-30.
 
 ## Decisiones de contexto confirmadas
 
@@ -49,26 +49,74 @@ API `routines` (list/detail/POST/PUT-reemplazo/DELETE, transaccional), `PLAN_LIM
 | `exercise_id` inexistente | ✅ 400 legible |
 | DELETE rutina | ✅ 204, recuento correcto |
 
-## Siguiente: semanas 7–9 — Logger de sesión activa (EMPEZAR AQUÍ)
+### Semanas 7–9 — Logger de sesión activa ✅
 
-La pantalla más importante (60% del valor percibido). Wireframe en `docs/diseno-ui-ux.md` §6.2.
+La pantalla más importante (60% del valor percibido), wireframe en `docs/diseno-ui-ux.md` §6.2.
 
-- [ ] Ruta `/sesion` a pantalla completa (sin tab bar; salir = minimizar a píldora o finalizar).
-- [ ] Flujos de inicio: desde rutina (`GET /routines/:id` precarga ejercicios/series objetivo) y libre (vacío + picker).
-- [ ] `SetRow` real: peso · reps · RPE · check; autocompletar con el último peso usado en ese ejercicio.
-- [ ] `StepperPeso` (±2.5 kg) / `StepperReps` (±1) de 56px con press-and-hold acelerado.
-- [ ] `TimerDescanso` display XXL editable; notificación local al llegar a 0.
-- [ ] Un dato hero (peso actual) en display 64; una sola decisión visible: la siguiente serie.
-- [ ] **Local-first**: cada mutación escribe en Dexie (`lib/offline/db.ts`) + entrada en outbox; `registerSyncTriggers` ya existe en `lib/offline/sync.ts`.
-- [ ] Al finalizar: `ended_at`, flush del outbox, pantalla de resumen con count-up (volumen, duración, PRs) usando `rewards` de la respuesta.
-- [ ] Celebración de PR: ignición + `TarjetaPR` (variante estática con reduced-motion).
-- [ ] Historial en Hoy debe leer de Dexie con fallback a red (hoy solo lee red).
+`/sesion` a pantalla completa fuera del shell (`app/sesion/layout.tsx`, sin tab bar), máquina de estados en
+`components/sesion/use-active-session.ts`: arranque desde rutina (`GET /routines/:id`) o libre con picker,
+reanudación de la sesión viva (`?resume=`) y una sola sesión activa a la vez. `SetRow` + `Stepper` de 56px
+con press-and-hold, `TimerDescanso` XXL con notificación local, autocompletado con `GET /workouts/last-set/:id`,
+RPE opcional, dato hero (peso) en display 64. Escritura local-first: cada serie completada escribe el documento
+en Dexie y encola la intención en el outbox (los taps del stepper son efímeros hasta confirmar la serie, para no
+inflar el outbox). Al finalizar: `ended_at`, flush del outbox y resumen con count-up (volumen, duración, series, PRs)
++ `TarjetaPR` con ignición. `SesionPildora` en el shell para minimizar y volver. Hoy lee red **y** Dexie y fusiona.
+
+### Semanas 10–11 — Sync robusto, celebraciones diferidas y PWA ✅
+
+- **Bug de pérdida de datos corregido** en `flushOutbox`: la confirmación borraba el outbox por `workout_id`,
+  así que una serie completada mientras el POST estaba en vuelo se borraba sin haberse enviado nunca. Ahora se
+  borran solo los `seq` que viajaron y el workout pasa a `synced` únicamente si no le queda ninguna entrada.
+- `flushOutbox` serializado (una pasada en vuelo; si algo encola durante el vuelo se reencadena otra) y con
+  cortocircuito offline.
+- `lib/offline/sync-state.ts`: store observable (`phase`/`pending`/`online`) + bus de recompensas, consumido con
+  `useSyncExternalStore`.
+- `BarraSync` (`components/offline/barra-sync.tsx`): franja que solo aparece cuando hay algo que decir
+  (sin conexión / sincronizando / pendientes) con copy sin culpa y botón de reintento.
+- `CelebracionesDiferidas` en el shell (nunca en `/sesion`, que ya celebra en su resumen): descarga la cola de
+  PRs, medallas y racha que devuelve el sync al reconectar (§8.3). `ACHIEVEMENT_LABELS` en `lib/labels.ts`.
+- **Background Sync API**: `requestBackgroundSync()` al encolar; el SW despierta con el tag `forja-outbox` y avisa
+  a los clientes por `postMessage` (el Bearer vive en la página, no en el SW). Si no hay clientes rechaza a
+  propósito para que el navegador reintente. Triggers de respaldo: `online`, `visibilitychange` y arranque.
+- **PWA instalada**: el inset del notch pasó de `<body>` (donde se sumaba a cada `min-h-dvh` y hacía scrollear la
+  página un notch entero en iOS) a las utilidades `area-segura` / `area-segura-top` en los contenedores de altura
+  completa; `/sesion` ya no duplicaba el inset. `apple-touch-icon` explícito (iOS ignora los iconos del manifest).
+
+### Verificaciones ejecutadas (semanas 10–11)
+
+| Prueba | Resultado |
+|---|---|
+| `pnpm typecheck` (shared + api + web) | ✅ |
+| `pnpm build` (14 rutas, standalone) | ✅ |
+| `pnpm test` — 4 jest (api) + 8 vitest (web) | ✅ |
+| Tags `forja-outbox` / `forja-flush-outbox` presentes en `public/sw.js` compilado | ✅ |
+| Test de regresión del outbox: falla con el código anterior, pasa con el nuevo | ✅ |
+
+Tests de sync en `apps/web/lib/offline/sync.test.ts` (vitest + `fake-indexeddb`, Dexie real, `api` mockeada):
+envío y marcado `synced`, compactación LWW de varias ediciones, **reintento** tras fallo de red,
+**duplicado** (`skipped_stale` sin reencolar), **borrado offline**, la serie completada en vuelo que no se pierde,
+mutex de flushes concurrentes y cortocircuito sin conexión.
+
+> No re-verificado E2E contra Postgres real en esta sesión: las pruebas E2E de la tabla anterior siguen siendo
+> las de las semanas 3–6. Conviene repetirlas antes de cerrar Fase 1.
+
+## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
+
+`/progreso` sigue siendo un placeholder. El backend solo expone `GET /analytics/volume`.
+
+- [ ] API: `GET /analytics/distribution` (volumen por grupo muscular), `GET /analytics/prs`,
+      `GET /analytics/exercise/:id/history`. Esquemas Zod en `packages/shared/src/schemas/analytics.ts`.
+- [ ] Gráfica de volumen por semana y selector de rango.
+- [ ] Heatmap muscular (§6.4 del plan de diseño).
+- [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
+- [ ] Resumen semanal.
+- [ ] Pase de accesibilidad completo (foco, contraste AA, `prefers-reduced-motion`, lectores de pantalla).
 
 ## Después (en orden)
 
-1. Semanas 10–11: celebraciones diferidas post-sync, Background Sync API, `BarraSync`, pulido PWA instalada (safe areas, splash), tests de integración de sync (reintento, duplicado, borrado offline).
-2. Semanas 12–13: Progreso real (`/analytics/volume` ya existe; añadir `distribution`, `prs`, `exercise/:id/history`), heatmap muscular, vitrina real de medallas (`user_achievements`), resumen semanal, pase de accesibilidad completo.
-3. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
+1. Cierre de Fase 1: repetir la batería E2E contra Postgres real incluyendo el logger completo
+   (sesión desde rutina → serie → finalizar → sync → recompensas) y el flujo offline extremo a extremo.
+2. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
 
 ## Deuda técnica registrada
 
@@ -76,5 +124,8 @@ La pantalla más importante (60% del valor percibido). Wireframe en `docs/diseno
 - Drag & drop con handle en el builder (hoy flechas).
 - `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
 - `skipped_stale` en cliente: traer copia del servidor y reemplazar la local (TODO en `lib/offline/sync.ts`).
+- Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
+- `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
+- Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.

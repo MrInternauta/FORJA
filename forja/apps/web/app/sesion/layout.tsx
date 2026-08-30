@@ -7,7 +7,7 @@ import { AuthGate } from "@/components/auth/auth-gate";
 export default function SesionLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <div className="min-h-dvh bg-[var(--bg)]">{children}</div>
+      <div className="area-segura min-h-dvh bg-[var(--bg)]">{children}</div>
     </AuthGate>
   );
 }

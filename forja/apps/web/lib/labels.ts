@@ -27,3 +27,28 @@ export const EQUIPMENT_LABELS: Record<EquipmentType, string> = {
   cardio_machine: "Máquina de cardio",
   other: "Otro",
 };
+
+/**
+ * Logros sembrados en `supabase/migrations/00000000000002_auth_hook_gamification.sql`.
+ * El backend solo devuelve el id en `rewards.new_achievements`; el nombre visible
+ * vive aqui para poder celebrar sin una llamada extra.
+ */
+export const ACHIEVEMENT_LABELS: Record<string, string> = {
+  primera_sesion: "Primer golpe",
+  sesiones_10: "Ritmo constante",
+  sesiones_50: "Oficio",
+  sesiones_100: "Centenario",
+  sesiones_365: "Un año de forja",
+  volumen_10k: "10 toneladas",
+  volumen_100k: "100 toneladas",
+  volumen_500k: "Medio millón",
+  volumen_1m: "Millón forjado",
+  racha_4: "Un mes al fuego",
+  racha_12: "Trimestre sólido",
+  racha_26: "Medio año",
+  racha_52: "Año inquebrantable",
+  primer_pr: "Primera marca",
+  prs_25: "Coleccionista",
+};
+
+export const achievementLabel = (id: string): string => ACHIEVEMENT_LABELS[id] ?? "Nuevo logro";
