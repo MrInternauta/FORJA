@@ -1,0 +1,68 @@
+# =============================================================
+# FORJA - compose de desarrollo y paridad de produccion.
+# Funciona igual con `docker compose` y con `podman-compose`.
+#
+# Dos modos de base de datos (elige uno):
+#   A) `supabase start` (CLI): stack completo (Auth+Storage+Studio).
+#      Levanta solo api/web de aqui:  docker compose up api web
+#   B) Solo Postgres (este `db`): API en modo dev con JWT HS256.
+#      docker compose up db   (migraciones se aplican al primer arranque)
+# Ambos exponen Postgres en 54322 => la misma DATABASE_URL del .env sirve
+# para los dos: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+# =============================================================
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "54322:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Init (solo primer arranque del volumen): stubs + migraciones reales
+      - ./infra/db-init/00_supabase_stubs.sql:/docker-entrypoint-initdb.d/00_supabase_stubs.sql:ro
+      - ./infra/db-init/01_apply_migrations.sh:/docker-entrypoint-initdb.d/01_apply_migrations.sh:ro
+      - ./supabase/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Containerfile
+    env_file: .env
+    environment:
+      # Dentro de la red de compose, la DB se llama `db`:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.containers.internal:54321}
+      # Modo B (sin Supabase Auth): secreto HS256 de DESARROLLO para firmar
+      # tokens de prueba. NUNCA usar en produccion.
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-forja-dev-secret}
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Containerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://127.0.0.1:54321}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/v1}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

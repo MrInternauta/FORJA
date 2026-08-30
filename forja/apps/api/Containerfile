@@ -1,0 +1,27 @@
+# =============================================================
+# FORJA API - imagen OCI (Podman/Docker). Multi-stage con pnpm deploy.
+# Build:  podman build -f apps/api/Containerfile -t forja-api .
+# =============================================================
+FROM node:22-alpine AS build
+RUN corepack enable
+WORKDIR /repo
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+RUN pnpm install --frozen-lockfile
+COPY tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+RUN pnpm --filter @forja/shared build \
+ && pnpm --filter @forja/api build \
+ && pnpm --filter @forja/api --prod deploy /out
+
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN addgroup -S forja && adduser -S forja -G forja
+COPY --from=build /out /app
+COPY --from=build /repo/apps/api/dist /app/dist
+USER forja
+EXPOSE 3001
+CMD ["node", "dist/main.js"]

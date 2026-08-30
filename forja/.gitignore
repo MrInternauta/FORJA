@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+apps/web/public/sw.js
+apps/web/public/swe-worker*.js
+supabase/.temp/

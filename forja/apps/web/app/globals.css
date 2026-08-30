@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+/* ============================================================
+   FORJA - Design tokens (plan de diseno §3)
+   Regla de oro: el gradiente oro->brasa SOLO en momentos de logro.
+   ============================================================ */
+
+@theme {
+  /* Paleta base (dark) */
+  --color-carbon: #0c0e12;
+  --color-acero: #161a21;
+  --color-linea: #262c36;
+  --color-humo: #8b93a1;
+  --color-hueso: #f1efe9;
+  --color-oro: #e3a43b;
+  --color-brasa: #e05a2b;
+  --color-senal: #41b883;
+  --color-alerta: #e0564b;
+
+  /* Tipografia (cargada via <link> en layout; fallbacks de sistema) */
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+
+  --ease-forja: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-celebracion: 900ms;
+}
+
+/* ===== Tokens semanticos por tema (los componentes consumen SOLO estos) ===== */
+:root {
+  --bg: var(--color-carbon);
+  --surface: var(--color-acero);
+  --border: var(--color-linea);
+  --fg: var(--color-hueso);
+  --fg-muted: var(--color-humo);
+  --accent: var(--color-oro);
+  --accent-contrast: #16130a;
+  color-scheme: dark;
+}
+
+.light {
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --border: #e3dfd6;
+  --fg: #15181e;
+  --fg-muted: #6b7280;
+  --accent: #b0761c; /* oro oscurecido: contraste AA sobre porcelana */
+  --accent-contrast: #ffffff;
+  color-scheme: light;
+}
+
+/* ===== Base ===== */
+html {
+  height: 100%;
+}
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* PWA instalada: respetar notch / barras del sistema */
+  padding-top: env(safe-area-inset-top);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ===== Utilidades del sistema ===== */
+
+/* Display FORJA: condensado fuerte en mayusculas (tipografia expresiva, §3.2) */
+@utility texto-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: expanded;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+/* Numerales de instrumento: pesos, reps, timers (mono-inspired data, §2) */
+@utility texto-dato {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Superficie estandar (card) */
+@utility superficie {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+/* Barra translucida (tab bar / sheets): profundidad puntual, §2 */
+@utility vidrio {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+}
+
+/* ===== Momentos de logro (unico lugar con gradiente) ===== */
+@keyframes ignicion {
+  0% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  35% {
+    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--color-brasa) 65%, transparent));
+  }
+  100% {
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-oro) 45%, transparent));
+  }
+}
+.animar-ignicion {
+  animation: ignicion var(--duration-celebracion) var(--ease-forja) 1;
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+.animar-latido {
+  animation: latido 400ms var(--ease-forja) 1;
+}
+
+/* Chispas de fragua del TarjetaPR (§7): particulas ascendentes, una sola vez. */
+@keyframes chispa {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-90px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* ===== Accesibilidad: reduced motion (§7, regla dura) =====
+   Se elimina el movimiento; la recompensa visual (color oro) se conserva. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

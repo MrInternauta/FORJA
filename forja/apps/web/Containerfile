@@ -1,0 +1,32 @@
+# =============================================================
+# FORJA Web - imagen OCI (Next standalone).
+# Las NEXT_PUBLIC_* se hornean en build: pasarlas como --build-arg.
+# =============================================================
+FROM node:22-alpine AS build
+RUN corepack enable
+WORKDIR /repo
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile
+COPY tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY apps/web apps/web
+RUN pnpm --filter @forja/shared build && pnpm --filter @forja/web build
+
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+WORKDIR /app
+RUN addgroup -S forja && adduser -S forja -G forja
+COPY --from=build /repo/apps/web/.next/standalone ./
+COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build /repo/apps/web/public ./apps/web/public
+USER forja
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]
