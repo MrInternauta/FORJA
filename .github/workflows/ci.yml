@@ -4,29 +4,41 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+# El monorepo vive en forja/; GitHub solo descubre workflows en la raiz del repo.
+defaults:
+  run:
+    working-directory: forja
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          # Rutas relativas a la raiz del repo, no a working-directory.
+          package_json_file: forja/package.json
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: forja/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm test
 
   image:
-    # Construye la imagen OCI de la API (misma que corre con Podman en local).
+    # Construye las imagenes OCI (las mismas que corren con Podman en local).
     # El push al registry queda como TODO: definir REGISTRY/secretos y descomentar.
     needs: verify
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -f apps/api/Containerfile -t forja-api:${{ github.sha }} .
       - run: docker build -f apps/web/Containerfile -t forja-web:${{ github.sha }} .
       # - name: Push & deploy
