@@ -1,6 +1,7 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { CacheFirst, ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
 import { defaultCache } from "@serwist/next/worker";
+import { FLUSH_MESSAGE, OUTBOX_SYNC_TAG } from "@/lib/offline/background-sync";
 
 /**
  * Service Worker FORJA - politica de cache del plan de diseno / arquitectura §6.
@@ -9,6 +10,8 @@ import { defaultCache } from "@serwist/next/worker";
  * - Media del catalogo (Supabase Storage): Cache-First con expiracion LRU.
  * - Resto de GETs a la API: Network-First con fallback.
  * - Mutaciones: NUNCA pasan por el SW; viven en el outbox de IndexedDB.
+ * - Background Sync: el SW despierta al volver la conexion y avisa a los
+ *   clientes para que vacien el outbox (ver `lib/offline/background-sync.ts`).
  */
 
 declare global {
@@ -51,3 +54,22 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+/**
+ * Background Sync (semanas 10-11). El POST necesita el Bearer de la sesion de
+ * Supabase, que solo existe en la pagina: aqui unicamente despertamos a los
+ * clientes abiertos para que llamen a `flushOutbox`. Si no hay ninguno,
+ * rechazamos a proposito para que el navegador reintente el `sync` mas tarde,
+ * cuando el usuario vuelva a abrir la app.
+ */
+self.addEventListener("sync", (event) => {
+  const syncEvent = event as ExtendableEvent & { tag?: string };
+  if (syncEvent.tag !== OUTBOX_SYNC_TAG) return;
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (clients.length === 0) throw new Error("sin clientes: reintentar el sync");
+      for (const client of clients) client.postMessage({ type: FLUSH_MESSAGE });
+    })(),
+  );
+});

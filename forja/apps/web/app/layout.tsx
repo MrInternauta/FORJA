@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   description: "Registro y seguimiento de entrenamientos. Forja tu progreso.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FORJA" },
+  // iOS ignora los iconos del manifest para la pantalla de inicio.
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

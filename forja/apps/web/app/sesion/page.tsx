@@ -117,10 +117,7 @@ function SesionInner() {
   }
 
   return (
-    <div
-      className="flex min-h-dvh flex-col gap-6 px-4 pb-6"
-      style={{ paddingTop: "calc(1rem + env(safe-area-inset-top))", paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
+    <div className="flex min-h-dvh flex-col gap-6 px-4 pb-6 pt-4">
       <header className="flex items-center justify-between">
         <button
           type="button"
@@ -365,7 +362,6 @@ function ResumenSesion({
   return (
     <div
       className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6 text-center"
-      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <p className="texto-display text-sm tracking-widest text-[var(--fg-muted)]">ENTRENAMIENTO TERMINADO</p>
 

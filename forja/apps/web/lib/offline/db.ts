@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { Workout } from "@forja/shared";
+import { requestBackgroundSync } from "./background-sync";
 
 /**
  * Almacen local (arquitectura §6): la UI de entrenamientos lee y escribe
@@ -46,6 +47,7 @@ export async function upsertLocalWorkout(workout: Workout): Promise<void> {
       client_updated_at: workout.client_updated_at,
     });
   });
+  void requestBackgroundSync();
 }
 
 /** Sesion(es) sin `ended_at`: para la pildora flotante y para resumir tras recargar. */
@@ -68,4 +70,5 @@ export async function discardLocalWorkout(id: string): Promise<void> {
       client_updated_at: new Date().toISOString(),
     });
   });
+  void requestBackgroundSync();
 }

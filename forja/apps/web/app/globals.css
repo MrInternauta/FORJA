@@ -64,7 +64,20 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  /* PWA instalada: respetar notch / barras del sistema */
+}
+
+/*
+ * PWA instalada: el inset del notch se aplica en cada contenedor `min-h-dvh`
+ * (`area-segura`), no en <body>. Con `box-sizing: border-box` el padding queda
+ * DENTRO del dvh; en <body> se sumaba a la altura y la pagina scrolleaba un
+ * notch entero en iOS instalado.
+ */
+@utility area-segura {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility area-segura-top {
   padding-top: env(safe-area-inset-top);
 }
 

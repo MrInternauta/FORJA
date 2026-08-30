@@ -43,13 +43,23 @@ pnpm install          # deps
 pnpm dev              # web :3000 + api :3001 (prefijo /v1) en watch
 pnpm build            # shared -> api -> web (turbo)
 pnpm typecheck        # TS estricto en los 3 paquetes
-pnpm test             # jest (api)
+pnpm test             # jest (api) + vitest (web: sync/outbox con fake-indexeddb)
 docker compose up db  # SOLO Postgres con migraciones auto-aplicadas (modo B)
 supabase start        # stack Supabase completo (modo A)
 ```
 
 Base de datos: los dos modos exponen Postgres en `127.0.0.1:54322` ⇒ una sola `DATABASE_URL` en `.env` (ver `.env.example`). En modo B no hay Supabase Auth: define `SUPABASE_JWT_SECRET` y firma tokens HS256 de prueba (`sub` = uuid insertado en `auth.users`, claim `user_role`).
 
+## Offline: reglas del outbox (semanas 10–11)
+
+El sync es la parte con más aristas del producto; lo que ya está resuelto no se rompe:
+
+- **Una sola pasada en vuelo.** `flushOutbox()` está serializado; si algo encola durante el vuelo se reencadena otra pasada. Nunca dos POST simultáneos del mismo outbox.
+- **Confirmar por `seq`, jamás por `workout_id`.** El outbox se limpia borrando exactamente las entradas que viajaron; una intención encolada mientras el POST estaba en vuelo debe sobrevivir. Por lo mismo, el workout pasa a `synced` solo cuando no le queda ninguna entrada. Hubo un bug de pérdida de datos justo aquí: `lib/offline/sync.test.ts` tiene el test de regresión.
+- **Nada se pierde ante un fallo.** Si el POST falla, las entradas siguen en el outbox y se reintentan en el próximo trigger (`online`, `visibilitychange`, arranque, aviso del SW).
+- **El SW no hace el POST.** El Bearer vive en la página; con Background Sync el SW solo despierta y avisa a los clientes (`lib/offline/background-sync.ts`).
+- **Las recompensas del sync se emiten al bus** de `lib/offline/sync-state.ts` y las celebra `CelebracionesDiferidas` en el shell — nunca en `/sesion`, que ya celebra en su resumen.
+
 ## Estado actual y siguiente tarea
 
-Ver `docs/ESTADO.md`. Resumen: Fase 0 + semanas 3–6 de Fase 1 hechas y verificadas E2E. **La siguiente tarea es el logger de sesión activa (semanas 7–9)** — la pantalla más importante del producto: pantalla completa sin navegación, `SetRow` con steppers de 56px, timer de descanso, autocompletado con el último peso, escritura local-first en Dexie + outbox, "empezar desde rutina" (el backend ya está listo: `GET /routines/:id` para precargar y `POST /sync/workouts` para persistir).
+Ver `docs/ESTADO.md`. Resumen: Fase 0 + semanas 3–11 de Fase 1 hechas (3–6 verificadas E2E contra Postgres real; 7–11 verificadas con typecheck, build y tests). **La siguiente tarea es Progreso real (semanas 12–13)**: `/progreso` sigue siendo un placeholder y el backend solo expone `GET /analytics/volume` — faltan `distribution`, `prs` y `exercise/:id/history`, la gráfica de volumen, el heatmap muscular, la vitrina de medallas desde `user_achievements`, el resumen semanal y el pase de accesibilidad completo.
