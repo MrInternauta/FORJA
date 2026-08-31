@@ -47,6 +47,21 @@ export default tseslint.config(
     languageOptions: { globals: { self: "readonly", ServiceWorkerGlobalScope: "readonly" } },
   },
 
+  // Scripts de build y ficheros de configuracion: corren en Node, no en el
+  // navegador, asi que sus globals no son los de `js.configs.recommended`.
+  {
+    files: ["**/scripts/**/*.{mjs,js}", "**/*.config.{mjs,js}"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
+
   // Convencion del repo: los `_` marcan argumentos deliberadamente sin usar.
   {
     rules: {
