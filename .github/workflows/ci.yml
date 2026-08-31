@@ -33,9 +33,12 @@ jobs:
 
   image:
     # Construye las imagenes OCI (las mismas que corren con Podman en local).
-    # El push al registry queda como TODO: definir REGISTRY/secretos y descomentar.
+    # Corre tambien en PR a proposito: estaba limitada a main, asi que una rotura
+    # del Containerfile solo se descubria despues de mergear (paso justo con
+    # ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE). El push al registry si debe quedar
+    # restringido a main: gatear ESE paso con
+    # `if: github.ref == 'refs/heads/main'` al descomentarlo.
     needs: verify
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

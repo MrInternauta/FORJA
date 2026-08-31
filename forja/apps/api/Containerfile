@@ -12,9 +12,14 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
+# --legacy: desde pnpm v10 `deploy` exige "inject-workspace-packages=true" y
+# aborta con ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE. No activamos la inyeccion
+# porque cambiaria el enlazado de @forja/shared en desarrollo (copia en vez de
+# symlink, y `pnpm dev` dejaria de propagar cambios al vuelo); el flag mantiene
+# el comportamiento anterior solo aqui, en la imagen.
 RUN pnpm --filter @forja/shared build \
  && pnpm --filter @forja/api build \
- && pnpm --filter @forja/api --prod deploy /out
+ && pnpm --filter @forja/api --prod deploy --legacy /out
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
