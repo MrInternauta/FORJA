@@ -1,22 +1,21 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# ESLint is a tool for identifying and reporting on patterns
-# found in ECMAScript/JavaScript code.
-# More details at https://github.com/eslint/eslint
-# and https://eslint.org
-
+# ESLint como escaner: los hallazgos se publican en Code scanning (SARIF), no
+# rompen el build. El gate duro de calidad es `pnpm typecheck` en el workflow CI.
+#
+# El codigo vive en forja/ (monorepo pnpm), no en la raiz del repo: por eso el
+# job instala dependencias y ejecuta eslint con working-directory forja, y la
+# ruta del SARIF que recibe upload-sarif si es relativa a la raiz.
 name: ESLint
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: [ "main" ]
   schedule:
     - cron: '44 2 * * 6'
+
+permissions:
+  contents: read
 
 jobs:
   eslint:
@@ -25,28 +24,51 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+      actions: read # requerido por upload-sarif en repos privados
+    defaults:
+      run:
+        working-directory: forja
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install ESLint
-        run: |
-          npm install eslint@8.10.0
-          npm install @microsoft/eslint-formatter-sarif@3.1.0
+      - uses: pnpm/action-setup@v6
+        with:
+          # Rutas relativas a la raiz del repo, no a working-directory.
+          package_json_file: forja/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: forja/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run ESLint
         env:
           SARIF_ESLINT_IGNORE_SUPPRESSED: "true"
-        run: npx eslint .
-          --config .eslintrc.js
-          --ext .js,.jsx,.ts,.tsx
+        # Los hallazgos viajan en el SARIF; que existan no debe tumbar el job.
+        continue-on-error: true
+        run: >
+          pnpm exec eslint .
           --format @microsoft/eslint-formatter-sarif
           --output-file eslint-results.sarif
-        continue-on-error: true
+
+      - name: Check SARIF was produced
+        # Sin esto, un fallo de ESLint (config rota, dependencias ausentes) se
+        # manifestaba como un critico "Path does not exist: eslint-results.sarif"
+        # en el upload, apuntando al paso equivocado.
+        run: |
+          if [ ! -f eslint-results.sarif ]; then
+            echo "::error::ESLint no genero eslint-results.sarif. El fallo esta en el paso 'Run ESLint' (config o dependencias), no en el upload."
+            exit 1
+          fi
+          echo "SARIF OK: $(wc -c < eslint-results.sarif) bytes"
 
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: eslint-results.sarif
+          sarif_file: forja/eslint-results.sarif
           wait-for-processing: true
