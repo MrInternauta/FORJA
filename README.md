@@ -26,12 +26,17 @@ Las semanas 3–6 están verificadas E2E contra PostgreSQL 16 real (onboarding �
 
 ## Estructura
 
-El monorepo vive en `forja/`, un nivel por debajo de la raíz del repositorio:
+La documentación vive en la raíz del repositorio; **todo el código está en `forja/`**:
 
 ```
 FORJA/                        <- raíz del repositorio git
+  README.md                   <- este archivo
+  CHANGELOG.md                <- cambios por versión
+  CLAUDE.md                   <- convenciones para asistentes de IA
+  docs/                       <- documentos rectores
+    arquitectura.md, diseno-ui-ux.md, ESTADO.md
   .github/workflows/          <- ci.yml, eslint.yml, dependency-review.yml
-  forja/                      <- este monorepo
+  forja/                      <- el monorepo: todo el código
     apps/
       api/                    NestJS: auth (JWT+roles), me, exercises, routines,
                               workouts+sync, analytics
@@ -49,11 +54,16 @@ FORJA/                        <- raíz del repositorio git
 > de la **raíz del repositorio**. Por eso viven en `FORJA/.github/workflows/` y
 > no dentro de `forja/`; los jobs usan `working-directory: forja`.
 
+Salvo que se indique otra cosa, **todos los comandos de este README se ejecutan
+desde `forja/`**, y las rutas de código (`apps/…`, `packages/…`, `supabase/…`)
+son relativas a ese directorio.
+
 ## Puesta en marcha (desarrollo)
 
 Requisitos: Node 22+, pnpm (via corepack), [Supabase CLI](https://supabase.com/docs/guides/cli), Podman (solo para paridad de producción).
 
 ```bash
+cd forja                # el monorepo vive aqui, no en la raiz
 corepack enable
 pnpm install
 

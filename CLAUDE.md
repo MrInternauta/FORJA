@@ -6,6 +6,15 @@ Este archivo da contexto a asistentes de IA (Claude Code u otros) que trabajen e
 - `docs/diseno-ui-ux.md` — sistema de diseño FORJA: tokens, tipografía, wireframes, animaciones, gamificación.
 - `docs/ESTADO.md` — qué está hecho, qué está verificado E2E y cuál es la siguiente tarea.
 
+## Dónde está cada cosa
+
+La documentación (este archivo, `README.md`, `CHANGELOG.md` y `docs/`) vive en la
+raíz del repositorio. **Todo el código está en `forja/`**, y las rutas de código
+que se citan aquí (`apps/api/src/…`, `packages/shared/…`, `supabase/migrations/…`)
+son relativas a ese directorio; los comandos `pnpm` se ejecutan desde ahí. Los
+workflows de GitHub Actions son la excepción: tienen que estar en
+`.github/workflows/` de la raíz para que Actions los descubra.
+
 ## Qué es
 
 PWA de registro y seguimiento de entrenamientos (equivalente funcional de Hevy) con capa social (Fase 2) y premium con IA (Fase 3). Contexto de negocio confirmado: ~20k registrados / ~2k DAU al año 1, **1 dev solo founder**, MVP 12–16 semanas, infra $50–200 USD/mes, LATAM (es-MX), unidades en kg.
