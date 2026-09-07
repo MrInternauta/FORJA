@@ -100,6 +100,29 @@ Paridad de producción (mismas imágenes OCI que CI, con la DB incluida):
 docker compose up --build      # o podman-compose up --build
 ```
 
+## Despliegue en Vercel
+
+El proyecto de Vercel para la web necesita **Root Directory = `forja`** en el dashboard
+(ajuste que `vercel.json` no puede fijar). El resto lo define `forja/vercel.json`.
+
+La clave es el `buildCommand`: `apps/web` **no compila solo**, porque
+`@forja/shared` se consume desde `dist/` + `dist-esm/`, que estan en `.gitignore`
+y no existen en un clon limpio. Hay que construir la dependencia primero — el
+sufijo `...` del filtro de turbo es justo eso:
+
+```bash
+pnpm turbo run build --filter=@forja/web...   # ... = y sus dependencias
+```
+
+Sin ese sufijo el build falla con `Module not found: Can't resolve '@forja/shared'`.
+
+Recuerda definir las `NEXT_PUBLIC_*` en el proyecto de Vercel (se hornean en build);
+sin ellas la app arranca con el aviso de "falta configurar Supabase".
+
+**La API no va en Vercel.** `apps/api` es un servidor NestJS de larga vida, no
+funciones serverless; su destino son contenedores gestionados (pregunta abierta
+n.º 3 de `docs/arquitectura.md`). El job `image` de CI ya construye su imagen OCI.
+
 ## Comandos
 
 | Comando | Qué hace |

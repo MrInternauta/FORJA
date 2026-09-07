@@ -1,4 +1,4 @@
-/** Espejo exacto de los enums de PostgreSQL (supabase/migrations/0001_init.sql). */
+/** Espejo exacto de los enums de PostgreSQL (supabase/migrations/00000000000001_esquema_inicial.sql). */
 export const APP_ROLES = ["ADMIN", "PRO", "FREE"] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 

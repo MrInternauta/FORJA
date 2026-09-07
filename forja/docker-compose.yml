@@ -39,12 +39,20 @@ services:
       dockerfile: apps/api/Containerfile
     env_file: .env
     environment:
-      # Dentro de la red de compose, la DB se llama `db`:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
-      SUPABASE_URL: ${SUPABASE_URL:-http://host.containers.internal:54321}
+      # Las URLs del .env son relativas al HOST (127.0.0.1), que dentro de un
+      # contenedor apunta al propio contenedor. Por eso se reescriben aqui:
+      #   Modo B (default): la DB es el servicio `db` de esta misma red.
+      #   Modo A: exporta API_DATABASE_URL/API_SUPABASE_URL apuntando al host
+      #           (ver .env.example) y levanta con `--no-deps`.
+      DATABASE_URL: ${API_DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres}
+      SUPABASE_URL: ${API_SUPABASE_URL:-http://host.docker.internal:54321}
       # Modo B (sin Supabase Auth): secreto HS256 de DESARROLLO para firmar
-      # tokens de prueba. NUNCA usar en produccion.
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-forja-dev-secret}
+      # tokens de prueba. NUNCA usar en produccion. Ojo con `-` en vez de `:-`:
+      # en modo A la variable va VACIA a proposito (la API valida contra JWKS)
+      # y `:-` reintroduciria el secreto, rompiendo la verificacion.
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET-forja-dev-secret}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "3001:3001"
     depends_on:
