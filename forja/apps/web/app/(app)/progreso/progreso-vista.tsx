@@ -2,18 +2,15 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { RecordsPersonales } from "@/components/progreso/records-personales";
 import { VolumenSemanal } from "@/components/progreso/volumen-semanal";
 import { RANGOS_SEMANAS, type RangoSemanas } from "@/lib/progreso/volumen";
 
-// TODO(sem. 12-13): PRs y medallas aun son mock; siguen GET /analytics/prs y user_achievements.
-const MOCK_PRS = [
-  { name: "Sentadilla trasera", weight: 140, when: "hace 3 días" },
-  { name: "Press banca", weight: 85, when: "hace 9 días" },
-];
+// TODO(sem. 12-13): la vitrina de medallas aun es mock; sigue leer user_achievements.
 const MEDALLAS_GANADAS = 3;
 const MEDALLAS_TOTAL = 15;
 
-/** Panel de progreso (wireframe §6.2). El selector de rango encabeza y acota la pantalla. */
+/** Panel de progreso (wireframe §6.2). El selector de rango acota el volumen; los récords son históricos. */
 export function ProgresoVista() {
   const [weeks, setWeeks] = useState<RangoSemanas>(12);
 
@@ -46,22 +43,7 @@ export function ProgresoVista() {
 
       <VolumenSemanal weeks={weeks} />
 
-      <Card>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
-          Récords personales
-        </h2>
-        <ul className="flex flex-col divide-y divide-[var(--border)]">
-          {MOCK_PRS.map((pr) => (
-            <li key={pr.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-              <div>
-                <p className="font-medium text-[var(--fg)]">{pr.name}</p>
-                <p className="text-xs text-[var(--fg-muted)]">{pr.when}</p>
-              </div>
-              <span className="texto-dato font-bold text-[var(--accent)]">{pr.weight} kg</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <RecordsPersonales />
 
       <Card className="lg:col-span-2">
         <div className="mb-3 flex items-baseline justify-between">

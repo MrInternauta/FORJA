@@ -192,7 +192,9 @@ export class WorkoutsService {
   }
 
   /**
-   * PR = mejor peso por ejercicio (desempate por reps), sobre sets completados.
+   * PR = mejor peso por ejercicio (desempate por reps), sobre sets completados
+   * de sesiones TERMINADAS. Los syncs a mitad de sesion no otorgan PRs: asi el
+   * PR llega en el sync que cierra la sesion y lo celebra su resumen.
    * Se materializa en exercise_prs; solo devolvemos los que MEJORAN.
    */
   private async detectPrs(tx: PoolClient, userId: string, exerciseIds: string[]) {
@@ -215,7 +217,8 @@ export class WorkoutsService {
          from public.workout_sets ws
          join public.workout_exercises we on we.id = ws.workout_exercise_id
          join public.workouts w on w.id = we.workout_id
-         where w.user_id = $1 and ws.is_completed and we.exercise_id = any($2::uuid[])
+         where w.user_id = $1 and w.ended_at is not null and ws.is_completed
+           and we.exercise_id = any($2::uuid[])
        ),
        upserted as (
          insert into public.exercise_prs (user_id, exercise_id, weight_kg, reps, workout_id)

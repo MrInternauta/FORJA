@@ -116,7 +116,12 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       `GraficaVolumen` (SVG propio, semana en curso en `--accent` plano, tooltip por barra, flechas de
       teclado, tabla `sr-only`, contraste de barras ≥3:1 en ambos temas), estados de carga/vacío/error y
       comparación contra la semana pasada sin % negativo mientras la semana sigue en curso. Helpers puros en
-      `lib/progreso/volumen.ts` con 7 tests. PRs y medallas de `/progreso` siguen siendo mock.
+      `lib/progreso/volumen.ts` con 7 tests. La vitrina de medallas de `/progreso` sigue siendo mock.
+- [x] Tarjeta de récords personales desde `GET /analytics/prs`: más reciente primero, 5 visibles + "Ver todos",
+      fecha relativa, estados de carga/vacío/error. Es histórica (el selector de semanas no la acota).
+      **Decisión del founder (2026-09-20):** PR = más peso por ejercicio (desempate por reps) y solo cuentan
+      sesiones TERMINADAS. `detectPrs` ahora filtra `ended_at`; antes un sync a mitad de sesión (Background Sync
+      tras cada serie) materializaba el PR y el resumen de `/sesion` mostraba 0 PRs. E2E 27/27.
 - [ ] Heatmap muscular (§6.4 del plan de diseño).
 - [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
 - [ ] Resumen semanal.
@@ -143,6 +148,3 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
   en la noche en México cae en la semana siguiente. Afecta gráfica y racha por igual.
 - La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
   Dexie); aparecen al sincronizar.
-- PRs: `detectPrs` (sync) no filtra `ended_at`, así que una serie de una sesión en curso ya cuenta como PR,
-  mientras que las gráficas de analytics solo ven sesiones terminadas. Además el PR es "más peso" (90×1 le gana
-  a 85×6 aunque el 1RM estimado de 85×6 sea mayor). Decidir si es lo deseado antes de la vitrina de PRs.
