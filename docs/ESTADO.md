@@ -112,7 +112,11 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       **Verificado E2E contra Postgres real (Supabase local, 2026-09-20): 23/23** — agregados exactos,
       exclusión de series incompletas y de la sesión en curso, filtro de rango, desempate por reps,
       `limit`, 400/404 legibles y aislamiento entre usuarios.
-- [ ] Gráfica de volumen por semana y selector de rango.
+- [x] Gráfica de volumen por semana y selector de rango (4 / 12 semanas) conectada a `GET /analytics/volume`:
+      `GraficaVolumen` (SVG propio, semana en curso en `--accent` plano, tooltip por barra, flechas de
+      teclado, tabla `sr-only`, contraste de barras ≥3:1 en ambos temas), estados de carga/vacío/error y
+      comparación contra la semana pasada sin % negativo mientras la semana sigue en curso. Helpers puros en
+      `lib/progreso/volumen.ts` con 7 tests. PRs y medallas de `/progreso` siguen siendo mock.
 - [ ] Heatmap muscular (§6.4 del plan de diseño).
 - [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
 - [ ] Resumen semanal.
@@ -135,6 +139,10 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.
+- Semanas en UTC: el backend agrupa con `date_trunc('week')` en la zona de la BD (UTC); una sesión del domingo
+  en la noche en México cae en la semana siguiente. Afecta gráfica y racha por igual.
+- La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
+  Dexie); aparecen al sincronizar.
 - PRs: `detectPrs` (sync) no filtra `ended_at`, así que una serie de una sesión en curso ya cuenta como PR,
   mientras que las gráficas de analytics solo ven sesiones terminadas. Además el PR es "más peso" (90×1 le gana
   a 85×6 aunque el 1RM estimado de 85×6 sea mayor). Decidir si es lo deseado antes de la vitrina de PRs.
