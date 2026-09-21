@@ -46,6 +46,12 @@
   --tier-plata: #d4dae2;
   --tier-oro: var(--color-oro);
   --tier-platino: #a9c1e8;
+  /* Rampa secuencial del heatmap muscular (un tono, del acento; validada: L monotona,
+     saltos visibles, extremo bajo >=2:1 sobre --surface). Menos -> mas. */
+  --heat-1: #644e2b;
+  --heat-2: #8d6a30;
+  --heat-3: #b88736;
+  --heat-4: #e3a43b;
   color-scheme: dark;
 }
 
@@ -62,6 +68,11 @@
   --tier-plata: #7d8794;
   --tier-oro: #b0761c;
   --tier-platino: #4f6a99;
+  /* En claro el oro ya es oscuro: el ultimo paso baja hacia la tinta para caber 4 pasos. */
+  --heat-1: #d1b07b;
+  --heat-2: #c09149;
+  --heat-3: #b0761c;
+  --heat-4: #855c1d;
   color-scheme: light;
 }
 

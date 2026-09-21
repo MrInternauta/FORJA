@@ -102,7 +102,7 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` ya muestra datos reales: volumen, récords y medallas. Faltan heatmap, resumen semanal y el pase de accesibilidad.
+`/progreso` ya muestra datos reales: volumen, grupos musculares, récords y medallas. Faltan barras por máquina, resumen semanal y el pase de accesibilidad.
 
 - [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
       **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
@@ -122,7 +122,13 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       **Decisión del founder (2026-09-20):** PR = más peso por ejercicio (desempate por reps) y solo cuentan
       sesiones TERMINADAS. `detectPrs` ahora filtra `ended_at`; antes un sync a mitad de sesión (Background Sync
       tras cada serie) materializaba el PR y el resumen de `/sesion` mostraba 0 PRs. E2E 27/27.
-- [ ] Heatmap muscular (§6.4 del plan de diseño).
+- [x] Heatmap muscular (wireframe §6.2; el plan no tiene §6.4) desde `GET /analytics/distribution?by=muscle_group`,
+      acotado por el selector de semanas. Mide **series**, no kg (el peso corporal registra 0 kg). Figura geométrica
+      frente/espalda con 11 grupos; `full_body` y `cardio` como chips. Rampa secuencial de un tono `--heat-1..4`
+      validada en ambos temas (en claro el último paso baja hacia la tinta para caber 4 pasos ≥2:1), 4 pasos
+      relativos al grupo más trabajado, leyenda con rangos, flechas de teclado, tabla `sr-only`.
+      Solo cuenta el grupo PRIMARIO del ejercicio (secundarios fuera). Pendiente del wireframe: barras "por máquina"
+      (`by=equipment` ya existe en la API).
 - [x] Vitrina de medallas desde `GET /me/achievements` (catálogo completo + `earned_at` + progreso de las
       bloqueadas). Reglas de logros movidas a `@forja/shared` (`ACHIEVEMENT_RULES`): la MISMA fuente otorga en el
       sync y calcula el progreso en la vitrina. `prs_25` queda `measurable: false` (sin log de eventos de PR).

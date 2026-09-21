@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { HeatmapMuscular } from "@/components/progreso/heatmap-muscular";
 import { RecordsPersonales } from "@/components/progreso/records-personales";
 import { VitrinaMedallas } from "@/components/progreso/vitrina-medallas";
 import { VolumenSemanal } from "@/components/progreso/volumen-semanal";
 import { RANGOS_SEMANAS, type RangoSemanas } from "@/lib/progreso/volumen";
 
-/** Panel de progreso (wireframe §6.2). El selector de rango acota el volumen; los récords son históricos. */
+/** Panel de progreso (wireframe §6.2). El selector de rango acota volumen y grupos musculares; récords y medallas son históricos. */
 export function ProgresoVista() {
   const [weeks, setWeeks] = useState<RangoSemanas>(12);
 
@@ -38,6 +39,8 @@ export function ProgresoVista() {
       </header>
 
       <VolumenSemanal weeks={weeks} />
+
+      <HeatmapMuscular weeks={weeks} />
 
       <RecordsPersonales />
 
