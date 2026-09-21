@@ -40,6 +40,12 @@
   --fg-muted: var(--color-humo);
   --accent: var(--color-oro);
   --accent-contrast: #16130a;
+  /* Metales de las medallas (§8.1). Solo en MedallaLogro; >=3:1 sobre --surface. */
+  --tier-hierro: #9aa3ad;
+  --tier-bronce: #cd8b58;
+  --tier-plata: #d4dae2;
+  --tier-oro: var(--color-oro);
+  --tier-platino: #a9c1e8;
   color-scheme: dark;
 }
 
@@ -51,6 +57,11 @@
   --fg-muted: #6b7280;
   --accent: #b0761c; /* oro oscurecido: contraste AA sobre porcelana */
   --accent-contrast: #ffffff;
+  --tier-hierro: #4a4f57;
+  --tier-bronce: #9a5a28;
+  --tier-plata: #7d8794;
+  --tier-oro: #b0761c;
+  --tier-platino: #4f6a99;
   color-scheme: light;
 }
 

@@ -1,4 +1,4 @@
-import type { EquipmentType, MuscleGroup } from "@forja/shared";
+import type { AchievementMetric, AchievementTier, EquipmentType, MuscleGroup } from "@forja/shared";
 
 export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
   chest: "Pecho",
@@ -52,3 +52,19 @@ export const ACHIEVEMENT_LABELS: Record<string, string> = {
 };
 
 export const achievementLabel = (id: string): string => ACHIEVEMENT_LABELS[id] ?? "Nuevo logro";
+
+export const TIER_LABELS: Record<AchievementTier, string> = {
+  hierro: "Hierro",
+  bronce: "Bronce",
+  plata: "Plata",
+  oro: "Oro",
+  platino: "Platino",
+};
+
+/** Categorias de la vitrina de medallas, en su orden de aparicion. */
+export const METRIC_LABELS: Record<AchievementMetric, string> = {
+  workouts: "Sesiones",
+  volume_kg: "Volumen",
+  streak_weeks: "Racha semanal",
+  prs: "Récords",
+};

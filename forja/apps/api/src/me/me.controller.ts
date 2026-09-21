@@ -32,6 +32,12 @@ export class MeController {
     return this.me.getMe(user.id);
   }
 
+  /** Vitrina de medallas: catalogo + ganados + progreso. */
+  @Get("me/achievements")
+  achievements(@CurrentUser() user: JwtUser) {
+    return this.me.achievements(user.id);
+  }
+
   @Patch("me")
   async patchMe(@CurrentUser() user: JwtUser, @Body() body: unknown) {
     await this.me.updateMe(user.id, zodParse(PatchMeSchema, body));

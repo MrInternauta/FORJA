@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { PoolClient } from "pg";
+import { eligibleAchievements } from "@forja/shared";
 import type {
   ExerciseLastSet,
   SyncItemResult,
@@ -323,33 +324,19 @@ export class WorkoutsService {
     userId: string,
     stats: { total_volume_kg: number; total_workouts: number; current_streak: number; longest_streak: number },
   ): Promise<string[]> {
-    const eligible: string[] = [];
-    const w = stats.total_workouts;
-    const v = stats.total_volume_kg;
-    const s = stats.longest_streak;
-
-    if (w >= 1) eligible.push("primera_sesion");
-    if (w >= 10) eligible.push("sesiones_10");
-    if (w >= 50) eligible.push("sesiones_50");
-    if (w >= 100) eligible.push("sesiones_100");
-    if (w >= 365) eligible.push("sesiones_365");
-    if (v >= 10_000) eligible.push("volumen_10k");
-    if (v >= 100_000) eligible.push("volumen_100k");
-    if (v >= 500_000) eligible.push("volumen_500k");
-    if (v >= 1_000_000) eligible.push("volumen_1m");
-    if (s >= 4) eligible.push("racha_4");
-    if (s >= 12) eligible.push("racha_12");
-    if (s >= 26) eligible.push("racha_26");
-    if (s >= 52) eligible.push("racha_52");
-
     const {
       rows: [{ prs }],
     } = await tx.query<{ prs: number }>(
       "select count(*)::int as prs from public.exercise_prs where user_id = $1",
       [userId],
     );
-    if (prs >= 1) eligible.push("primer_pr");
-    // TODO('prs_25'): requiere log de eventos de PR (no solo el PR vigente por ejercicio).
+    // Reglas compartidas con la vitrina (GET /me/achievements): una sola fuente.
+    const eligible = eligibleAchievements({
+      workouts: stats.total_workouts,
+      volume_kg: stats.total_volume_kg,
+      streak_weeks: stats.longest_streak,
+      prs,
+    });
 
     if (eligible.length === 0) return [];
     const { rows } = await tx.query<{ achievement_id: string }>(

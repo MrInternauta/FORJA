@@ -1,14 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { RecordsPersonales } from "@/components/progreso/records-personales";
+import { VitrinaMedallas } from "@/components/progreso/vitrina-medallas";
 import { VolumenSemanal } from "@/components/progreso/volumen-semanal";
 import { RANGOS_SEMANAS, type RangoSemanas } from "@/lib/progreso/volumen";
-
-// TODO(sem. 12-13): la vitrina de medallas aun es mock; sigue leer user_achievements.
-const MEDALLAS_GANADAS = 3;
-const MEDALLAS_TOTAL = 15;
 
 /** Panel de progreso (wireframe §6.2). El selector de rango acota el volumen; los récords son históricos. */
 export function ProgresoVista() {
@@ -45,30 +41,7 @@ export function ProgresoVista() {
 
       <RecordsPersonales />
 
-      <Card className="lg:col-span-2">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
-            Vitrina de medallas
-          </h2>
-          <span className="texto-dato text-sm text-[var(--fg-muted)]">
-            {MEDALLAS_GANADAS}/{MEDALLAS_TOTAL}
-          </span>
-        </div>
-        {/* Medallas bloqueadas en silueta: se ve lo que falta (aspiracional, §8.1) */}
-        <div className="flex flex-wrap gap-3">
-          {Array.from({ length: MEDALLAS_TOTAL }).map((_, i) => (
-            <div
-              key={i}
-              aria-hidden
-              className={`h-10 w-10 rotate-45 rounded-[4px] border ${
-                i < MEDALLAS_GANADAS
-                  ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]"
-                  : "border-[var(--border)]"
-              }`}
-            />
-          ))}
-        </div>
-      </Card>
+      <VitrinaMedallas className="lg:col-span-2" />
     </div>
   );
 }

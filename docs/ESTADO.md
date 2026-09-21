@@ -102,7 +102,7 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` sigue siendo un placeholder (barras mock). La API de analytics ya está completa.
+`/progreso` ya muestra datos reales: volumen, récords y medallas. Faltan heatmap, resumen semanal y el pase de accesibilidad.
 
 - [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
       **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
@@ -116,14 +116,20 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       `GraficaVolumen` (SVG propio, semana en curso en `--accent` plano, tooltip por barra, flechas de
       teclado, tabla `sr-only`, contraste de barras ≥3:1 en ambos temas), estados de carga/vacío/error y
       comparación contra la semana pasada sin % negativo mientras la semana sigue en curso. Helpers puros en
-      `lib/progreso/volumen.ts` con 7 tests. La vitrina de medallas de `/progreso` sigue siendo mock.
+      `lib/progreso/volumen.ts` con 7 tests. 
 - [x] Tarjeta de récords personales desde `GET /analytics/prs`: más reciente primero, 5 visibles + "Ver todos",
       fecha relativa, estados de carga/vacío/error. Es histórica (el selector de semanas no la acota).
       **Decisión del founder (2026-09-20):** PR = más peso por ejercicio (desempate por reps) y solo cuentan
       sesiones TERMINADAS. `detectPrs` ahora filtra `ended_at`; antes un sync a mitad de sesión (Background Sync
       tras cada serie) materializaba el PR y el resumen de `/sesion` mostraba 0 PRs. E2E 27/27.
 - [ ] Heatmap muscular (§6.4 del plan de diseño).
-- [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
+- [x] Vitrina de medallas desde `GET /me/achievements` (catálogo completo + `earned_at` + progreso de las
+      bloqueadas). Reglas de logros movidas a `@forja/shared` (`ACHIEVEMENT_RULES`): la MISMA fuente otorga en el
+      sync y calcula el progreso en la vitrina. `prs_25` queda `measurable: false` (sin log de eventos de PR).
+      Migración `0004_logros_acentos.sql` (acentos/ñ en nombres y descripciones sembrados en ASCII). UI: rombos por
+      categoría con el metal de su tier (tokens `--tier-*` en `globals.css`, ≥3:1 en ambos temas), silueta con
+      contraste ≥3:1 para las bloqueadas, detalle con barra de progreso gris (el oro solo para lo ganado); abre en la
+      medalla más cercana a ganarse. E2E 36/36.
 - [ ] Resumen semanal.
 - [ ] Pase de accesibilidad completo (foco, contraste AA, `prefers-reduced-motion`, lectores de pantalla).
 
@@ -148,3 +154,5 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
   en la noche en México cae en la semana siguiente. Afecta gráfica y racha por igual.
 - La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
   Dexie); aparecen al sincronizar.
+- Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
+  `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.

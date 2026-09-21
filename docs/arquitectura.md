@@ -394,6 +394,7 @@ El registro/login ocurre **cliente ↔ Supabase Auth** (no pasa por NestJS). El 
 | GET | `/analytics/distribution` | query: `from?, to?, by=muscle_group\|equipment` | `200` |
 | GET | `/analytics/prs` | PRs por ejercicio (mejor peso×reps, 1RM estimado) | `200` |
 | GET | `/analytics/exercise/:id/history` | series históricas de un ejercicio | `200` |
+| GET | `/me/achievements` | catálogo de logros con `earned_at` y `progress {current, target}` de los bloqueados | `200` / `404` sin onboarding |
 
 ### Billing (Fase 3)
 
