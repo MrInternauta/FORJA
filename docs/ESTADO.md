@@ -1,6 +1,6 @@
 # ESTADO.md — Bitácora del proyecto
 
-Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-08-30.
+Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-09-20.
 
 ## Decisiones de contexto confirmadas
 
@@ -102,10 +102,16 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` sigue siendo un placeholder. El backend solo expone `GET /analytics/volume`.
+`/progreso` sigue siendo un placeholder (barras mock). La API de analytics ya está completa.
 
-- [ ] API: `GET /analytics/distribution` (volumen por grupo muscular), `GET /analytics/prs`,
-      `GET /analytics/exercise/:id/history`. Esquemas Zod en `packages/shared/src/schemas/analytics.ts`.
+- [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
+      **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
+      `GET /analytics/exercise/:id/history?limit=30` (por sesión: serie top, 1RM estimado, volumen, series;
+      orden ascendente para graficar; 404 si el ejercicio no existe). Esquemas Zod en
+      `packages/shared/src/schemas/analytics.ts`. Todas cuentan solo sets completados de sesiones terminadas.
+      **Verificado E2E contra Postgres real (Supabase local, 2026-09-20): 23/23** — agregados exactos,
+      exclusión de series incompletas y de la sesión en curso, filtro de rango, desempate por reps,
+      `limit`, 400/404 legibles y aislamiento entre usuarios.
 - [ ] Gráfica de volumen por semana y selector de rango.
 - [ ] Heatmap muscular (§6.4 del plan de diseño).
 - [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
@@ -129,3 +135,6 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.
+- PRs: `detectPrs` (sync) no filtra `ended_at`, así que una serie de una sesión en curso ya cuenta como PR,
+  mientras que las gráficas de analytics solo ven sesiones terminadas. Además el PR es "más peso" (90×1 le gana
+  a 85×6 aunque el 1RM estimado de 85×6 sea mayor). Decidir si es lo deseado antes de la vitrina de PRs.
