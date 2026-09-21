@@ -83,9 +83,10 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setMuscle(active ? null : m)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)] ${
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-sm transition-colors duration-[var(--duration-fast)] ${
                   active
-                    ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
+                    ? // Texto en --fg: el oro sobre su tinte da 4.2:1 en claro; el borde oro marca la seleccion
+                    "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--fg)]"
                     : "border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)]"
                 }`}
               >

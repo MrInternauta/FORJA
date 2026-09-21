@@ -159,8 +159,14 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
         `sr-only` va en un div.
       - axe-core 4.13 (WCAG 2.0/2.1/2.2 A+AA): **0 violaciones** en `/login`, `/onboarding` y `/progreso` completo
         (datos simulados), tema oscuro y claro. Layout de `/progreso` revisado a 300 px sin desbordes.
-      Pendiente: auditar con sesión iniciada `/hoy`, `/entrenar`, `/entrenar/nueva`, `/ejercicios`, `/perfil` y
-      `/sesion` (requieren login en el navegador); lectores de pantalla reales (VoiceOver/TalkBack); Lighthouse ≥95.
+      Con sesión iniciada (rama en :3098/:3099, datos reales): **0 violaciones axe** en `/hoy`, `/entrenar`,
+      `/entrenar/nueva`, `/ejercicios` (incl. chip activo y sheet de detalle), `/perfil`, `/progreso` y `/sesion`
+      (vacía, picker y logger), ambos temas. Corregido en esta vuelta: enlace activo del sidebar y chip activo
+      (oro sobre su tinte = 4.2:1 → texto `--fg`), chips de filtro a 44 px, logo del sidebar a 44 px, y en `/sesion`
+      todo a 56 px: RPE en rejilla 3×3 con `aria-pressed` + grupo con nombre (antes 32 px y estado solo por color),
+      enlaces de navegación, "Añadir ejercicio" y "Finalizar". Diálogos verificados con datos reales (foco, Escape,
+      retorno). De paso: bug de `secondary_muscles` (llegaba como texto y rompía el detalle de ejercicio).
+      Pendiente: lectores de pantalla reales (VoiceOver/TalkBack) y Lighthouse ≥95 sobre build de producción.
 
 ## Después (en orden)
 
