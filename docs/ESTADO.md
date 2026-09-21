@@ -102,7 +102,7 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` ya muestra datos reales: volumen, grupos musculares, récords y medallas. Faltan barras por máquina, resumen semanal y el pase de accesibilidad.
+`/progreso` ya muestra datos reales: volumen, grupos musculares, máquinas, récords y medallas. Faltan el resumen semanal y el pase de accesibilidad.
 
 - [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
       **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
@@ -127,8 +127,10 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       frente/espalda con 11 grupos; `full_body` y `cardio` como chips. Rampa secuencial de un tono `--heat-1..4`
       validada en ambos temas (en claro el último paso baja hacia la tinta para caber 4 pasos ≥2:1), 4 pasos
       relativos al grupo más trabajado, leyenda con rangos, flechas de teclado, tabla `sr-only`.
-      Solo cuenta el grupo PRIMARIO del ejercicio (secundarios fuera). Pendiente del wireframe: barras "por máquina"
-      (`by=equipment` ya existe en la API).
+      Solo cuenta el grupo PRIMARIO del ejercicio (secundarios fuera).
+- [x] Barras "por máquina" desde `GET /analytics/distribution?by=equipment`, acotadas por el selector: series por
+      tipo de equipo, horizontales, ordenadas, valor en la punta, un solo gris (sin leyenda: una serie), tabla
+      `sr-only` con series y kg.
 - [x] Vitrina de medallas desde `GET /me/achievements` (catálogo completo + `earned_at` + progreso de las
       bloqueadas). Reglas de logros movidas a `@forja/shared` (`ACHIEVEMENT_RULES`): la MISMA fuente otorga en el
       sync y calcula el progreso en la vitrina. `prs_25` queda `measurable: false` (sin log de eventos de PR).
