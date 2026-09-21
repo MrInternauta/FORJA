@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   DistributionDimension,
   DistributionPoint,
@@ -6,6 +6,7 @@ import type {
   ExerciseHistory,
   ExerciseHistoryPoint,
   PersonalRecord,
+  WeeklySummary,
   WeeklyVolumePoint,
 } from "@forja/shared";
 import { DatabaseService } from "../database/database.service";
@@ -131,5 +132,88 @@ export class AnalyticsService {
     );
 
     return { exercise, points: points.reverse() };
+  }
+
+  /**
+   * Resumen de UNA semana ISO (UTC, igual que volumen y racha): sesiones contra
+   * el objetivo, volumen contra la semana anterior, PRs y medallas de la semana.
+   * Por defecto la ultima semana completa ("cada lunes", diseno §8.1).
+   * Contrato: GET /analytics/weekly-summary.
+   */
+  async weeklySummary(userId: string, week?: string): Promise<WeeklySummary> {
+    const [bounds] = await this.db.query<{ week_start: string; latest: string }>(
+      `select to_char(coalesce($1::date, date_trunc('week', now())::date - 7), 'YYYY-MM-DD') as week_start,
+              to_char(date_trunc('week', now())::date - 7, 'YYYY-MM-DD') as latest`,
+      [week ?? null],
+    );
+    if (bounds.week_start > bounds.latest) {
+      throw new BadRequestException("Esa semana aún no termina: el resumen llega el lunes siguiente");
+    }
+
+    const [stats] = await this.db.query<{ weekly_goal: number; current_streak: number }>(
+      "select weekly_goal, current_streak from public.user_stats where user_id = $1",
+      [userId],
+    );
+    if (!stats) throw new NotFoundException("Perfil no encontrado: completa el onboarding");
+
+    // Semana pedida y la anterior en una pasada: [ws - 7d, ws + 7d)
+    const [agg] = await this.db.query<{
+      sessions: number;
+      volume_kg: number;
+      sets: number;
+      previous_volume_kg: number;
+    }>(
+      `with ws as (select $2::timestamptz as t)
+       select count(distinct w.id) filter (where w.started_at >= ws.t)::int as sessions,
+              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at >= ws.t and s.is_completed), 0)::float8 as volume_kg,
+              count(s.id) filter (where w.started_at >= ws.t and s.is_completed)::int as sets,
+              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at < ws.t and s.is_completed), 0)::float8 as previous_volume_kg
+       from ws
+       join public.workouts w on w.user_id = $1
+         and w.ended_at is not null
+         and w.started_at >= ws.t - interval '7 days'
+         and w.started_at < ws.t + interval '7 days'
+       left join public.workout_exercises we on we.workout_id = w.id
+       left join public.workout_sets s on s.workout_exercise_id = we.id
+       group by ws.t`,
+      [userId, `${bounds.week_start}T00:00:00Z`],
+    );
+
+    const prs = await this.db.query<WeeklySummary["prs"][number]>(
+      `select p.exercise_id, e.name as exercise_name, p.weight_kg::float8 as weight_kg, p.reps::int as reps
+       from public.exercise_prs p
+       join public.exercises e on e.id = p.exercise_id
+       join public.workouts w on w.id = p.workout_id
+       where p.user_id = $1
+         and w.started_at >= $2::timestamptz and w.started_at < $2::timestamptz + interval '7 days'
+       order by e.name`,
+      [userId, `${bounds.week_start}T00:00:00Z`],
+    );
+
+    // earned_at = momento del sync que la otorgo (cercano al entrenamiento).
+    const achievements = await this.db.query<WeeklySummary["achievements"][number]>(
+      `select a.id, a.name, a.tier
+       from public.user_achievements ua
+       join public.achievements a on a.id = ua.achievement_id
+       where ua.user_id = $1
+         and ua.earned_at >= $2::timestamptz and ua.earned_at < $2::timestamptz + interval '7 days'
+       order by a.sort_order`,
+      [userId, `${bounds.week_start}T00:00:00Z`],
+    );
+
+    const sessions = agg?.sessions ?? 0;
+    return {
+      week_start: bounds.week_start,
+      sessions,
+      weekly_goal: stats.weekly_goal,
+      goal_met: sessions >= stats.weekly_goal,
+      volume_kg: agg?.volume_kg ?? 0,
+      sets: agg?.sets ?? 0,
+      previous_volume_kg: agg?.previous_volume_kg ?? 0,
+      prs,
+      achievements,
+      current_streak: stats.current_streak,
+      is_latest: bounds.week_start === bounds.latest,
+    };
   }
 }

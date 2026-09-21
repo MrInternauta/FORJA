@@ -394,6 +394,7 @@ El registro/login ocurre **cliente ↔ Supabase Auth** (no pasa por NestJS). El 
 | GET | `/analytics/distribution` | query: `from?, to?, by=muscle_group\|equipment` | `200` |
 | GET | `/analytics/prs` | PRs por ejercicio (mejor peso×reps, 1RM estimado) | `200` |
 | GET | `/analytics/exercise/:id/history` | series históricas de un ejercicio | `200` |
+| GET | `/analytics/weekly-summary` | query: `week?=YYYY-MM-DD` (lunes; por defecto la última semana completa) → sesiones vs objetivo, volumen vs anterior, PRs y medallas de la semana, racha | `200` / `400` semana en curso o no lunes |
 | GET | `/me/achievements` | catálogo de logros con `earned_at` y `progress {current, target}` de los bloqueados | `200` / `404` sin onboarding |
 
 ### Billing (Fase 3)

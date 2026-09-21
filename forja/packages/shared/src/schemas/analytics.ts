@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACHIEVEMENT_TIERS } from "../enums";
 
 export const WeeklyVolumePointSchema = z.object({
   week_start: z.string(),
@@ -75,3 +76,39 @@ export const ExerciseHistorySchema = z.object({
   points: z.array(ExerciseHistoryPointSchema),
 });
 export type ExerciseHistory = z.infer<typeof ExerciseHistorySchema>;
+
+/* ---------- GET /analytics/weekly-summary ---------- */
+
+/** `week` = lunes (UTC) de la semana a resumir; por defecto la ultima semana completa. */
+export const WeeklySummaryQuerySchema = z.object({
+  week: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD")
+    .refine((d) => !Number.isNaN(Date.parse(`${d}T00:00:00Z`)), "Fecha invalida")
+    .refine((d) => new Date(`${d}T00:00:00Z`).getUTCDay() === 1, "`week` debe ser un lunes")
+    .optional(),
+});
+
+export const WeeklySummarySchema = z.object({
+  week_start: z.string(),
+  sessions: z.number().int(),
+  weekly_goal: z.number().int(),
+  goal_met: z.boolean(),
+  volume_kg: z.number(),
+  sets: z.number().int(),
+  previous_volume_kg: z.number(),
+  /** PRs vigentes cuya sesion cayo en la semana (un PR superado despues ya no aparece). */
+  prs: z.array(
+    z.object({
+      exercise_id: z.string().uuid(),
+      exercise_name: z.string(),
+      weight_kg: z.number(),
+      reps: z.number().int(),
+    }),
+  ),
+  achievements: z.array(z.object({ id: z.string(), name: z.string(), tier: z.enum(ACHIEVEMENT_TIERS) })),
+  current_streak: z.number().int(),
+  /** true si la semana pedida es la ultima completa: la UI no ofrece "siguiente". */
+  is_latest: z.boolean(),
+});
+export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;

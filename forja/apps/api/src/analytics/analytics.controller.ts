@@ -1,5 +1,10 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
-import { DistributionQuerySchema, ExerciseHistoryQuerySchema, VolumeQuerySchema } from "@forja/shared";
+import {
+  DistributionQuerySchema,
+  ExerciseHistoryQuerySchema,
+  VolumeQuerySchema,
+  WeeklySummaryQuerySchema,
+} from "@forja/shared";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { JwtUser } from "../auth/jwt-user";
 import { zodParse } from "../common/zod";
@@ -33,5 +38,11 @@ export class AnalyticsController {
   ) {
     const { limit } = zodParse(ExerciseHistoryQuerySchema, query);
     return this.analytics.exerciseHistory(user.id, id, limit);
+  }
+
+  @Get("weekly-summary")
+  weeklySummary(@CurrentUser() user: JwtUser, @Query() query: unknown) {
+    const { week } = zodParse(WeeklySummaryQuerySchema, query);
+    return this.analytics.weeklySummary(user.id, week);
   }
 }

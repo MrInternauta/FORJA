@@ -102,7 +102,7 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` ya muestra datos reales: volumen, grupos musculares, máquinas, récords y medallas. Faltan el resumen semanal y el pase de accesibilidad.
+`/progreso` ya muestra datos reales: resumen semanal, volumen, grupos musculares, máquinas, récords y medallas. Falta el pase de accesibilidad.
 
 - [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
       **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
@@ -138,8 +138,19 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       categoría con el metal de su tier (tokens `--tier-*` en `globals.css`, ≥3:1 en ambos temas), silueta con
       contraste ≥3:1 para las bloqueadas, detalle con barra de progreso gris (el oro solo para lo ganado); abre en la
       medalla más cercana a ganarse. E2E 36/36.
-- [ ] Resumen semanal.
+- [x] Resumen semanal: `GET /analytics/weekly-summary?week=YYYY-MM-DD` (lunes UTC; por defecto la última semana
+      completa; 400 legible para semana en curso/no lunes) con sesiones vs objetivo, volumen vs semana anterior,
+      series, PRs cuya sesión cayó en la semana, medallas ganadas en la semana y racha actual. Tarjeta arriba de
+      `/progreso` con `AnilloForja` (igniciona solo si se cumplió el objetivo), copy sin culpa (semana corta = "Cada
+      una suma"; 0 = "El descanso también es parte del entrenamiento"), flechas para semanas anteriores. El selector
+      de rango bajó a una fila "Tendencias" encima de lo que sí acota. E2E 47/47.
+      Limitaciones: `weekly_goal` es el ACTUAL (no hay histórico del objetivo); PRs superados después no aparecen en
+      su semana (falta log de eventos de PR); la racha solo se muestra en la semana más reciente. Sin notificación
+      push de los lunes: no hay infraestructura de push todavía.
 - [ ] Pase de accesibilidad completo (foco, contraste AA, `prefers-reduced-motion`, lectores de pantalla).
+      Ya detectado: `--color-senal` (#41b883) como TEXTO sobre fondo claro da 2.5:1 (falla AA 4.5:1); se usa en
+      "↑N% vs sem. pasada" de volumen y resumen. En oscuro da 7:1. Falta además revisar el layout a 320–390 px:
+      las vistas previas de esta sesión se vieron en ventana de escritorio.
 
 ## Después (en orden)
 
