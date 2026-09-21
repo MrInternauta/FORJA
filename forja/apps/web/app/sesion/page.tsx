@@ -123,7 +123,7 @@ function SesionInner() {
           type="button"
           onClick={() => router.push("/hoy")}
           aria-label="Minimizar entrenamiento"
-          className="superficie flex h-10 w-10 items-center justify-center text-[var(--fg-muted)]"
+          className="superficie flex h-14 w-14 items-center justify-center text-[var(--fg-muted)]"
         >
           <X size={18} strokeWidth={2} />
         </button>
@@ -331,13 +331,13 @@ function ActivePanel({
       <button
         type="button"
         onClick={onAddSet}
-        className="text-sm text-[var(--fg-muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
+        className="inline-flex min-h-14 items-center justify-center px-4 text-sm text-[var(--fg-muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
       >
         + Añadir serie
       </button>
 
       {nextExerciseName && (
-        <button type="button" onClick={onSkipToNext} className="text-sm text-[var(--fg-muted)]">
+        <button type="button" onClick={onSkipToNext} className="inline-flex min-h-14 items-center justify-center px-4 text-sm text-[var(--fg-muted)]">
           Siguiente: {nextExerciseName} →
         </button>
       )}

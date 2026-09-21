@@ -127,7 +127,7 @@ export function ResumenSemanal({ className = "" }: { className?: string }) {
               <Dato label="Volumen">
                 <p className="texto-dato font-bold text-[var(--fg)]">{formatKg(r.volume_kg)}</p>
                 {comparacion?.kind === "sube" && (
-                  <p className="texto-dato text-xs text-[var(--color-senal)]">↑{comparacion.pct}% vs anterior</p>
+                  <p className="texto-dato text-xs text-[var(--positive)]">↑{comparacion.pct}% vs anterior</p>
                 )}
                 {comparacion?.kind === "baja" && (
                   <p className="texto-dato text-xs text-[var(--fg-muted)]">Anterior: {formatKg(comparacion.anterior)}</p>

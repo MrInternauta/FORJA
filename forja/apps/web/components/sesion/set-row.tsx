@@ -37,14 +37,14 @@ export function SetRow({ index, weightKg, reps, rpe, state, onComplete }: Props)
           type="button"
           onClick={onComplete}
           aria-label={`Completar serie ${index + 1}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] text-[var(--accent)] transition-colors duration-[var(--duration-fast)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] text-[var(--accent)] transition-colors duration-[var(--duration-fast)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"
         >
           <Check size={16} strokeWidth={2.5} />
         </button>
       ) : state === "done" ? (
-        <Check size={16} strokeWidth={2.5} className="shrink-0 text-[var(--color-senal)]" aria-hidden />
+        <Check size={16} strokeWidth={2.5} className="shrink-0 text-[var(--positive)]" aria-hidden />
       ) : (
-        <span className="w-9 shrink-0" aria-hidden />
+        <span className="w-14 shrink-0" aria-hidden />
       )}
     </div>
   );

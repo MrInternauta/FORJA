@@ -74,7 +74,7 @@ export default function OnboardingPage() {
           />
         </label>
 
-        {error && <p className="text-sm text-[var(--color-alerta)]">{error}</p>}
+        {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
         <Button type="submit" disabled={loading}>
           {loading ? "Forjando…" : "Empezar"}

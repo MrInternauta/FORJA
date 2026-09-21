@@ -40,6 +40,13 @@
   --fg-muted: var(--color-humo);
   --accent: var(--color-oro);
   --accent-contrast: #16130a;
+  /* Estado (texto e iconos): >=4.5:1 sobre --bg y --surface en ambos temas. */
+  --positive: var(--color-senal);
+  --danger: var(--color-alerta);
+  --warning: var(--color-brasa);
+  /* Ignicion (SOLO momentos de logro, regla de oro): extremos del gradiente oro->brasa. */
+  --ignicion-desde: var(--color-oro);
+  --ignicion-hasta: var(--color-brasa);
   /* Metales de las medallas (§8.1). Solo en MedallaLogro; >=3:1 sobre --surface. */
   --tier-hierro: #9aa3ad;
   --tier-bronce: #cd8b58;
@@ -60,9 +67,14 @@
   --surface: #ffffff;
   --border: #e3dfd6;
   --fg: #15181e;
-  --fg-muted: #6b7280;
-  --accent: #b0761c; /* oro oscurecido: contraste AA sobre porcelana */
+  --fg-muted: #676d7b; /* 4.7:1 sobre --bg (antes #6b7280: 4.4, no llegaba a AA) */
+  --accent: #966418; /* oro oscurecido: AA como texto sobre porcelana (4.6:1) y bajo texto blanco (5.1:1) */
   --accent-contrast: #ffffff;
+  --positive: #2c7b58;
+  --danger: #bc483f;
+  --warning: #ba4b24;
+  --ignicion-desde: #966418;
+  --ignicion-hasta: #ba4b24;
   --tier-hierro: #4a4f57;
   --tier-bronce: #9a5a28;
   --tier-plata: #7d8794;

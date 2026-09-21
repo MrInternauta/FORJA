@@ -32,7 +32,7 @@ export function BarraSync() {
     spinning = true;
   } else if (phase === "error") {
     Icon = TriangleAlert;
-    tone = "text-[var(--color-brasa)]";
+    tone = "text-[var(--warning)]";
     message = pending > 0 ? `${sesiones} pendientes de subir` : "Reintentando la sincronización";
   } else {
     message = `${sesiones} por sincronizar`;

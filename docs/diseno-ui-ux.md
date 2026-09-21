@@ -68,7 +68,7 @@ Basado en análisis de tendencias publicados para 2026 (Figma, Tubik Studio, Lys
 | `linea` | `#E3DFD6` | Bordes |
 | `texto-sec` | `#6B7280` | Secundario |
 | `texto` | `#15181E` | Principal |
-| `oro` | `#B0761C` | Acento oscurecido para cumplir contraste AA sobre claro |
+| `oro` | `#966418` | Acento oscurecido: AA como texto sobre porcelana (4.6:1) y bajo texto blanco (5.1:1). El `#B0761C` original solo daba 3.85:1 (AA grande) |
 | `brasa` | `#C2431C` | Ídem |
 
 Regla de oro (literal): el gradiente `oro → brasa` está prohibido fuera de los momentos de logro. Botones primarios usan `oro` plano.
@@ -124,7 +124,7 @@ Escala: `12 / 14 / 16 / 20 / 28 / 40 / 64`. El tamaño 64 (display) existe solo 
   --border: #e3dfd6;
   --fg: #15181e;
   --fg-muted: #6b7280;
-  --accent: #b0761c;
+  --accent: #966418;
 }
 ```
 
@@ -144,7 +144,7 @@ Los componentes consumen **solo tokens semánticos** (`--bg`, `--surface`, `--fg
 - Implementación: `next-themes` con `attribute="class"` (clase `.light`), default `dark`, opción "sistema". Sin flash de tema incorrecto: script inline en `<head>` (lo gestiona la librería) + `color-scheme` en CSS.
 - `theme-color` del manifest y de la meta tag sincronizados por tema para que la barra del sistema acompañe (instalada como PWA se nota mucho).
 - Las imágenes/medias del catálogo se muestran sobre `--surface` con un scrim sutil en dark para que fotos claras no "quemen" la pantalla.
-- Criterio de contraste: AA mínimo en todo texto; el `oro` claro (`#B0761C`) existe precisamente porque `#E3A43B` no pasa AA sobre fondo porcelana.
+- Criterio de contraste: AA mínimo en todo texto; el `oro` claro (`#966418`) existe precisamente porque `#E3A43B` no pasa AA sobre fondo porcelana. Los colores de estado tienen su versión clara (`--positive`, `--danger`, `--warning`) y el gradiente de ignición también (`--ignicion-desde/hasta`), todos ≥4.5:1.
 
 ---
 

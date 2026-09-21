@@ -96,7 +96,7 @@ function Comparacion({ points }: { points: WeeklyVolumePoint[] }) {
   if (delta === null) return null;
   if (delta >= 0) {
     return (
-      <span className="texto-dato text-sm font-bold text-[var(--color-senal)]">
+      <span className="texto-dato text-sm font-bold text-[var(--positive)]">
         ↑{delta}% vs sem. pasada
       </span>
     );

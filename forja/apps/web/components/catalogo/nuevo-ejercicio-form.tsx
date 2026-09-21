@@ -7,6 +7,7 @@ import { CreateExerciseSchema, EQUIPMENT_TYPES, MUSCLE_GROUPS } from "@forja/sha
 import { api, ApiError } from "@/lib/api";
 import { EQUIPMENT_LABELS, MUSCLE_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
+import { Dialogo } from "@/components/ui/dialogo";
 
 interface Props {
   onClose: () => void;
@@ -56,12 +57,10 @@ export function NuevoEjercicioForm({ onClose, onCreated }: Props) {
     "superficie min-h-11 rounded-[var(--radius-control)] px-3 text-[var(--fg)] bg-[var(--surface)]";
 
   return (
-    <div
+    <Dialogo
+      label="Nuevo ejercicio"
+      onClose={onClose}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Nuevo ejercicio"
-      onClick={onClose}
     >
       <form
         onSubmit={submit}
@@ -75,7 +74,7 @@ export function NuevoEjercicioForm({ onClose, onCreated }: Props) {
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="superficie flex h-9 w-9 items-center justify-center"
+            className="superficie flex h-11 w-11 items-center justify-center"
           >
             <X size={16} strokeWidth={1.75} className="text-[var(--fg-muted)]" />
           </button>
@@ -134,13 +133,13 @@ export function NuevoEjercicioForm({ onClose, onCreated }: Props) {
             </label>
           </div>
 
-          {error && <p className="text-sm text-[var(--color-alerta)]">{error}</p>}
+          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
           <Button type="submit" disabled={saving}>
             {saving ? "Guardando…" : "Guardar ejercicio"}
           </Button>
         </div>
       </form>
-    </div>
+    </Dialogo>
   );
 }
