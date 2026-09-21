@@ -196,7 +196,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          Descripción <span className="opacity-60">(opcional)</span>
+          Descripción <span>(opcional)</span>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}

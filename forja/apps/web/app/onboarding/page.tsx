@@ -65,7 +65,7 @@ export default function OnboardingPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          Nombre visible <span className="opacity-60">(opcional)</span>
+          Nombre visible <span>(opcional)</span>
           <input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}

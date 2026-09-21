@@ -281,28 +281,32 @@ export function HeatmapMuscular({ weeks }: { weeks: RangoSemanas }) {
           )}
           <p className="mt-2 text-xs text-[var(--fg-muted)]">Cada serie cuenta para el grupo principal del ejercicio.</p>
 
-          <table className="sr-only">
-            <caption>Series y volumen por grupo muscular, últimas {weeks} semanas</caption>
-            <thead>
-              <tr>
-                <th scope="col">Grupo</th>
-                <th scope="col">Series</th>
-                <th scope="col">Volumen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...EN_CUERPO, ...FUERA_DEL_CUERPO].map((g) => {
-                const p = byGroup.get(g);
-                return (
-                  <tr key={g}>
-                    <th scope="row">{MUSCLE_LABELS[g]}</th>
-                    <td>{p?.sets ?? 0}</td>
-                    <td>{formatKg(p?.volume_kg ?? 0)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/* sr-only en un div, no en la tabla: una <table> ignora width:1px, crece a su
+              contenido y provoca scroll horizontal en moviles */}
+          <div className="sr-only">
+            <table>
+              <caption>Series y volumen por grupo muscular, últimas {weeks} semanas</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Grupo</th>
+                  <th scope="col">Series</th>
+                  <th scope="col">Volumen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...EN_CUERPO, ...FUERA_DEL_CUERPO].map((g) => {
+                  const p = byGroup.get(g);
+                  return (
+                    <tr key={g}>
+                      <th scope="row">{MUSCLE_LABELS[g]}</th>
+                      <td>{p?.sets ?? 0}</td>
+                      <td>{formatKg(p?.volume_kg ?? 0)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </Card>

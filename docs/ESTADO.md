@@ -147,10 +147,20 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       Limitaciones: `weekly_goal` es el ACTUAL (no hay histórico del objetivo); PRs superados después no aparecen en
       su semana (falta log de eventos de PR); la racha solo se muestra en la semana más reciente. Sin notificación
       push de los lunes: no hay infraestructura de push todavía.
-- [ ] Pase de accesibilidad completo (foco, contraste AA, `prefers-reduced-motion`, lectores de pantalla).
-      Ya detectado: `--color-senal` (#41b883) como TEXTO sobre fondo claro da 2.5:1 (falla AA 4.5:1); se usa en
-      "↑N% vs sem. pasada" de volumen y resumen. En oscuro da 7:1. Falta además revisar el layout a 320–390 px:
-      las vistas previas de esta sesión se vieron en ventana de escritorio.
+- [~] Pase de accesibilidad (en curso, 2026-09-21). Hecho y verificado:
+      - Contraste AA en tema claro: `--accent` #966418, `--fg-muted` #676d7b; tokens de estado `--positive`/`--danger`/
+        `--warning` e ignición `--ignicion-desde/hasta` con versión clara ≥4.5:1; ya nadie usa la paleta cruda.
+        Texto con opacidad (hint "(opcional)", series pendientes) pasado a `--fg-muted`.
+      - Objetivos táctiles: 56 px en `/sesion`, 44 px en el resto (sin controles <44 px medidos a 300 px).
+      - Nombres accesibles: switch "Perfil público", barra de progreso de medallas.
+      - Foco visible en buscadores (`focus-within`); diálogos modales con foco dentro, Tab atrapado, Escape y retorno
+        del foco (`useDialog`/`Dialogo`, los 5 modales).
+      - Scroll horizontal en móvil causado por las tablas `sr-only` (una `<table>` ignora `width:1px`): ahora el
+        `sr-only` va en un div.
+      - axe-core 4.13 (WCAG 2.0/2.1/2.2 A+AA): **0 violaciones** en `/login`, `/onboarding` y `/progreso` completo
+        (datos simulados), tema oscuro y claro. Layout de `/progreso` revisado a 300 px sin desbordes.
+      Pendiente: auditar con sesión iniciada `/hoy`, `/entrenar`, `/entrenar/nueva`, `/ejercicios`, `/perfil` y
+      `/sesion` (requieren login en el navegador); lectores de pantalla reales (VoiceOver/TalkBack); Lighthouse ≥95.
 
 ## Después (en orden)
 

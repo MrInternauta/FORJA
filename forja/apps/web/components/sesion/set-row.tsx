@@ -23,11 +23,12 @@ export function SetRow({ index, weightKg, reps, rpe, state, onComplete }: Props)
     <div
       className={`flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2 transition-colors duration-[var(--duration-fast)] ${
         state === "active" ? "superficie border-[var(--accent)]" : ""
-      } ${state === "pending" ? "opacity-50" : ""}`}
+      }`}
     >
       <span className="texto-dato w-5 shrink-0 text-center text-sm text-[var(--fg-muted)]">{index + 1}</span>
       <span
-        className={`texto-dato flex-1 text-sm ${state === "done" ? "text-[var(--fg-muted)]" : "text-[var(--fg)]"}`}
+        // Pendiente y hecha en gris legible (no opacidad: bajaba de AA); la hecha se distingue por su check.
+        className={`texto-dato flex-1 text-sm ${state === "active" ? "text-[var(--fg)]" : "text-[var(--fg-muted)]"}`}
       >
         {weightKg > 0 ? `${fmtKg(weightKg)} kg` : "peso corporal"} × {reps || "–"}
         {rpe ? <span className="ml-2 text-xs text-[var(--fg-muted)]">RPE {rpe}</span> : null}

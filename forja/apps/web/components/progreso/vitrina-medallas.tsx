@@ -81,6 +81,7 @@ function Detalle({ logro }: { logro: AchievementStatus }) {
           {/* El oro se reserva para lo ganado: el avance va en gris (§1 "aspiracional") */}
           <div
             role="progressbar"
+            aria-label={`Progreso hacia ${logro.name}`}
             aria-valuemin={0}
             aria-valuemax={progress.target}
             aria-valuenow={progress.current}

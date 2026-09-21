@@ -180,25 +180,29 @@ export function GraficaVolumen({ points }: { points: WeeklyVolumePoint[] }) {
       )}
 
       {/* Vista de tabla: el mismo dato sin depender de la grafica */}
-      <table className="sr-only">
-        <caption>Volumen por semana</caption>
-        <thead>
-          <tr>
-            <th scope="col">Semana</th>
-            <th scope="col">Volumen</th>
-            <th scope="col">Sesiones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {points.map((p, i) => (
-            <tr key={p.week_start}>
-              <th scope="row">{i === last ? "Esta semana" : `Semana del ${formatWeek(p.week_start)}`}</th>
-              <td>{formatKg(p.volume_kg)}</td>
-              <td>{p.workouts}</td>
+      {/* sr-only en un div, no en la tabla: una <table> ignora width:1px, crece a su
+          contenido y provoca scroll horizontal en moviles */}
+      <div className="sr-only">
+        <table>
+          <caption>Volumen por semana</caption>
+          <thead>
+            <tr>
+              <th scope="col">Semana</th>
+              <th scope="col">Volumen</th>
+              <th scope="col">Sesiones</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {points.map((p, i) => (
+              <tr key={p.week_start}>
+                <th scope="row">{i === last ? "Esta semana" : `Semana del ${formatWeek(p.week_start)}`}</th>
+                <td>{formatKg(p.volume_kg)}</td>
+                <td>{p.workouts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

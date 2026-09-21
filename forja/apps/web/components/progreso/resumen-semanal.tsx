@@ -55,9 +55,9 @@ export function ResumenSemanal({ className = "" }: { className?: string }) {
 
   return (
     <Card className={className}>
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">Resumen semanal</h2>
-        <div className="flex items-center">
+        <div className="ml-auto flex items-center">
           <button
             type="button"
             aria-label="Semana anterior"
@@ -67,7 +67,7 @@ export function ResumenSemanal({ className = "" }: { className?: string }) {
           >
             <ChevronLeft size={18} aria-hidden />
           </button>
-          <span aria-live="polite" className="min-w-28 text-center text-sm text-[var(--fg)]">
+          <span aria-live="polite" className="whitespace-nowrap text-center text-sm text-[var(--fg)]">
             {r ? (r.is_latest ? "Semana pasada" : `Sem. del ${formatWeek(r.week_start)}`) : "…"}
           </span>
           <button
@@ -117,20 +117,21 @@ export function ResumenSemanal({ className = "" }: { className?: string }) {
                 {r.sessions}
                 <span className="text-[var(--fg-muted)]">/{r.weekly_goal}</span>
               </span>
-              <span className="text-[10px] uppercase tracking-wide text-[var(--fg-muted)]">sesiones</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">sesiones</span>
             </AnilloForja>
             <p className="text-sm text-[var(--fg)] sm:max-w-40 sm:text-center">{resumenCopy(r)}</p>
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-4">
-            <div className="grid grid-cols-3 gap-3">
+            {/* Fila que envuelve: a 320 px los valores no se parten ("9,420 / kg") */}
+            <div className="flex flex-wrap gap-x-6 gap-y-3">
               <Dato label="Volumen">
-                <p className="texto-dato font-bold text-[var(--fg)]">{formatKg(r.volume_kg)}</p>
+                <p className="texto-dato whitespace-nowrap font-bold text-[var(--fg)]">{formatKg(r.volume_kg)}</p>
                 {comparacion?.kind === "sube" && (
-                  <p className="texto-dato text-xs text-[var(--positive)]">↑{comparacion.pct}% vs anterior</p>
+                  <p className="texto-dato whitespace-nowrap text-xs text-[var(--positive)]">↑{comparacion.pct}% vs anterior</p>
                 )}
                 {comparacion?.kind === "baja" && (
-                  <p className="texto-dato text-xs text-[var(--fg-muted)]">Anterior: {formatKg(comparacion.anterior)}</p>
+                  <p className="texto-dato whitespace-nowrap text-xs text-[var(--fg-muted)]">Anterior: {formatKg(comparacion.anterior)}</p>
                 )}
               </Dato>
               <Dato label="Series">

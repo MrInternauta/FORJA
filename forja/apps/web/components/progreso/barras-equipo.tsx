@@ -96,25 +96,29 @@ export function BarrasEquipo({ weeks }: { weeks: RangoSemanas }) {
               ))}
             </ul>
 
-            <table className="sr-only">
-              <caption>Series y volumen por tipo de equipo, últimas {weeks} semanas</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Equipo</th>
-                  <th scope="col">Series</th>
-                  <th scope="col">Volumen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {points.map((p) => (
-                  <tr key={p.key}>
-                    <th scope="row">{label(p.key)}</th>
-                    <td>{p.sets}</td>
-                    <td>{formatKg(p.volume_kg)}</td>
+            {/* sr-only en un div, no en la tabla: una <table> ignora width:1px, crece a su
+                contenido y provoca scroll horizontal en moviles */}
+            <div className="sr-only">
+              <table>
+                <caption>Series y volumen por tipo de equipo, últimas {weeks} semanas</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Equipo</th>
+                    <th scope="col">Series</th>
+                    <th scope="col">Volumen</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {points.map((p) => (
+                    <tr key={p.key}>
+                      <th scope="row">{label(p.key)}</th>
+                      <td>{p.sets}</td>
+                      <td>{formatKg(p.volume_kg)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         ))}
     </Card>
