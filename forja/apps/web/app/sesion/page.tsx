@@ -123,7 +123,7 @@ function SesionInner() {
           type="button"
           onClick={() => router.push("/hoy")}
           aria-label="Minimizar entrenamiento"
-          className="superficie flex h-10 w-10 items-center justify-center text-[var(--fg-muted)]"
+          className="superficie flex h-14 w-14 items-center justify-center text-[var(--fg-muted)]"
         >
           <X size={18} strokeWidth={2} />
         </button>
@@ -142,7 +142,7 @@ function SesionInner() {
             <button
               type="button"
               onClick={() => setPicking(true)}
-              className="flex min-h-12 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent)] px-6 font-semibold text-[var(--accent-contrast)]"
+              className="flex min-h-14 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent)] px-6 font-semibold text-[var(--accent-contrast)]"
             >
               <Plus size={18} strokeWidth={2.25} aria-hidden />
               Añadir ejercicio
@@ -195,14 +195,14 @@ function SesionInner() {
               type="button"
               disabled={s.activeExerciseIdx === 0}
               onClick={() => session.jumpToExercise(s.activeExerciseIdx - 1)}
-              className="text-sm text-[var(--fg-muted)] disabled:opacity-30"
+              className="inline-flex min-h-14 items-center pr-4 text-sm text-[var(--fg-muted)] disabled:opacity-30"
             >
               ← Ejercicio anterior
             </button>
             <button
               type="button"
               onClick={() => setPicking(true)}
-              className="text-sm text-[var(--fg-muted)] hover:text-[var(--fg)]"
+              className="inline-flex min-h-14 items-center pl-4 text-sm text-[var(--fg-muted)] hover:text-[var(--fg)]"
             >
               + Añadir ejercicio
             </button>
@@ -211,7 +211,7 @@ function SesionInner() {
         <button
           type="button"
           onClick={handleFinish}
-          className={`flex min-h-12 items-center justify-center rounded-[var(--radius-control)] text-sm font-semibold transition-[filter] duration-[var(--duration-fast)] ${
+          className={`flex min-h-14 items-center justify-center rounded-[var(--radius-control)] text-sm font-semibold transition-[filter] duration-[var(--duration-fast)] ${
             allDone
               ? "bg-[var(--accent)] text-[var(--accent-contrast)] hover:brightness-110"
               : "superficie text-[var(--fg-muted)] hover:text-[var(--fg)]"
@@ -287,15 +287,18 @@ function ActivePanel({
       </div>
 
       <div className="flex flex-col items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">RPE</span>
-        <div className="flex flex-wrap justify-center gap-1.5">
+        <span id="rpe-label" className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">RPE</span>
+        {/* 56px en sesion activa (CLAUDE.md §8): 3x3 de 56px (184px) cabe a 320px; 5 por fila no */}
+        <div role="group" aria-labelledby="rpe-label" className="grid grid-cols-[repeat(3,3.5rem)] gap-2">
           {RPE_OPTIONS.map((v) => (
             <button
               key={v}
               type="button"
+              aria-pressed={set.rpe === v}
+              aria-label={`RPE ${v}`}
               onClick={() => onUpdate({ rpe: set.rpe === v ? null : v })}
-              className={`superficie flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs transition-colors duration-[var(--duration-fast)] ${
-                set.rpe === v ? "border-[var(--accent)] text-[var(--accent)]" : "text-[var(--fg-muted)]"
+              className={`superficie texto-dato flex h-14 items-center justify-center rounded-[var(--radius-control)] text-sm transition-colors duration-[var(--duration-fast)] ${
+                set.rpe === v ? "border-2 border-[var(--accent)] font-bold text-[var(--accent)]" : "text-[var(--fg-muted)]"
               }`}
             >
               {v}
@@ -331,13 +334,13 @@ function ActivePanel({
       <button
         type="button"
         onClick={onAddSet}
-        className="text-sm text-[var(--fg-muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
+        className="inline-flex min-h-14 items-center justify-center px-4 text-sm text-[var(--fg-muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
       >
         + Añadir serie
       </button>
 
       {nextExerciseName && (
-        <button type="button" onClick={onSkipToNext} className="text-sm text-[var(--fg-muted)]">
+        <button type="button" onClick={onSkipToNext} className="inline-flex min-h-14 items-center justify-center px-4 text-sm text-[var(--fg-muted)]">
           Siguiente: {nextExerciseName} →
         </button>
       )}

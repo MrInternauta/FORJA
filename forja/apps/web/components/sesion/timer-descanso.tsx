@@ -68,21 +68,21 @@ export function TimerDescanso({ initialSeconds, resetKey, onDone }: Props) {
           <button
             type="button"
             onClick={() => adjust(-15)}
-            className="superficie flex h-9 items-center justify-center rounded-full px-3 text-sm text-[var(--fg-muted)]"
+            className="superficie flex h-14 min-w-14 items-center justify-center rounded-full px-4 text-sm text-[var(--fg-muted)]"
           >
             −15s
           </button>
           <button
             type="button"
             onClick={() => setSeconds(0)}
-            className="superficie flex h-9 items-center justify-center rounded-full px-3 text-sm text-[var(--fg-muted)]"
+            className="superficie flex h-14 min-w-14 items-center justify-center rounded-full px-4 text-sm text-[var(--fg-muted)]"
           >
             Saltar
           </button>
           <button
             type="button"
             onClick={() => adjust(15)}
-            className="superficie flex h-9 items-center justify-center rounded-full px-3 text-sm text-[var(--fg-muted)]"
+            className="superficie flex h-14 min-w-14 items-center justify-center rounded-full px-4 text-sm text-[var(--fg-muted)]"
           >
             +15s
           </button>

@@ -1,6 +1,6 @@
 # ESTADO.md — Bitácora del proyecto
 
-Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-08-30.
+Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-09-20.
 
 ## Decisiones de contexto confirmadas
 
@@ -102,15 +102,71 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Siguiente: semanas 12–13 — Progreso real (EMPEZAR AQUÍ)
 
-`/progreso` sigue siendo un placeholder. El backend solo expone `GET /analytics/volume`.
+`/progreso` ya muestra datos reales: resumen semanal, volumen, grupos musculares, máquinas, récords y medallas. Falta el pase de accesibilidad.
 
-- [ ] API: `GET /analytics/distribution` (volumen por grupo muscular), `GET /analytics/prs`,
-      `GET /analytics/exercise/:id/history`. Esquemas Zod en `packages/shared/src/schemas/analytics.ts`.
-- [ ] Gráfica de volumen por semana y selector de rango.
-- [ ] Heatmap muscular (§6.4 del plan de diseño).
-- [ ] Vitrina real de medallas leyendo `user_achievements` (hoy solo se celebran al ganarse).
-- [ ] Resumen semanal.
-- [ ] Pase de accesibilidad completo (foco, contraste AA, `prefers-reduced-motion`, lectores de pantalla).
+- [x] API: `GET /analytics/distribution?from&to&by=muscle_group|equipment` (volumen y series por grupo
+      **primario** o por equipo), `GET /analytics/prs` (desde `exercise_prs`, con 1RM estimado Epley),
+      `GET /analytics/exercise/:id/history?limit=30` (por sesión: serie top, 1RM estimado, volumen, series;
+      orden ascendente para graficar; 404 si el ejercicio no existe). Esquemas Zod en
+      `packages/shared/src/schemas/analytics.ts`. Todas cuentan solo sets completados de sesiones terminadas.
+      **Verificado E2E contra Postgres real (Supabase local, 2026-09-20): 23/23** — agregados exactos,
+      exclusión de series incompletas y de la sesión en curso, filtro de rango, desempate por reps,
+      `limit`, 400/404 legibles y aislamiento entre usuarios.
+- [x] Gráfica de volumen por semana y selector de rango (4 / 12 semanas) conectada a `GET /analytics/volume`:
+      `GraficaVolumen` (SVG propio, semana en curso en `--accent` plano, tooltip por barra, flechas de
+      teclado, tabla `sr-only`, contraste de barras ≥3:1 en ambos temas), estados de carga/vacío/error y
+      comparación contra la semana pasada sin % negativo mientras la semana sigue en curso. Helpers puros en
+      `lib/progreso/volumen.ts` con 7 tests. 
+- [x] Tarjeta de récords personales desde `GET /analytics/prs`: más reciente primero, 5 visibles + "Ver todos",
+      fecha relativa, estados de carga/vacío/error. Es histórica (el selector de semanas no la acota).
+      **Decisión del founder (2026-09-20):** PR = más peso por ejercicio (desempate por reps) y solo cuentan
+      sesiones TERMINADAS. `detectPrs` ahora filtra `ended_at`; antes un sync a mitad de sesión (Background Sync
+      tras cada serie) materializaba el PR y el resumen de `/sesion` mostraba 0 PRs. E2E 27/27.
+- [x] Heatmap muscular (wireframe §6.2; el plan no tiene §6.4) desde `GET /analytics/distribution?by=muscle_group`,
+      acotado por el selector de semanas. Mide **series**, no kg (el peso corporal registra 0 kg). Figura geométrica
+      frente/espalda con 11 grupos; `full_body` y `cardio` como chips. Rampa secuencial de un tono `--heat-1..4`
+      validada en ambos temas (en claro el último paso baja hacia la tinta para caber 4 pasos ≥2:1), 4 pasos
+      relativos al grupo más trabajado, leyenda con rangos, flechas de teclado, tabla `sr-only`.
+      Solo cuenta el grupo PRIMARIO del ejercicio (secundarios fuera).
+- [x] Barras "por máquina" desde `GET /analytics/distribution?by=equipment`, acotadas por el selector: series por
+      tipo de equipo, horizontales, ordenadas, valor en la punta, un solo gris (sin leyenda: una serie), tabla
+      `sr-only` con series y kg.
+- [x] Vitrina de medallas desde `GET /me/achievements` (catálogo completo + `earned_at` + progreso de las
+      bloqueadas). Reglas de logros movidas a `@forja/shared` (`ACHIEVEMENT_RULES`): la MISMA fuente otorga en el
+      sync y calcula el progreso en la vitrina. `prs_25` queda `measurable: false` (sin log de eventos de PR).
+      Migración `0004_logros_acentos.sql` (acentos/ñ en nombres y descripciones sembrados en ASCII). UI: rombos por
+      categoría con el metal de su tier (tokens `--tier-*` en `globals.css`, ≥3:1 en ambos temas), silueta con
+      contraste ≥3:1 para las bloqueadas, detalle con barra de progreso gris (el oro solo para lo ganado); abre en la
+      medalla más cercana a ganarse. E2E 36/36.
+- [x] Resumen semanal: `GET /analytics/weekly-summary?week=YYYY-MM-DD` (lunes UTC; por defecto la última semana
+      completa; 400 legible para semana en curso/no lunes) con sesiones vs objetivo, volumen vs semana anterior,
+      series, PRs cuya sesión cayó en la semana, medallas ganadas en la semana y racha actual. Tarjeta arriba de
+      `/progreso` con `AnilloForja` (igniciona solo si se cumplió el objetivo), copy sin culpa (semana corta = "Cada
+      una suma"; 0 = "El descanso también es parte del entrenamiento"), flechas para semanas anteriores. El selector
+      de rango bajó a una fila "Tendencias" encima de lo que sí acota. E2E 47/47.
+      Limitaciones: `weekly_goal` es el ACTUAL (no hay histórico del objetivo); PRs superados después no aparecen en
+      su semana (falta log de eventos de PR); la racha solo se muestra en la semana más reciente. Sin notificación
+      push de los lunes: no hay infraestructura de push todavía.
+- [~] Pase de accesibilidad (en curso, 2026-09-21). Hecho y verificado:
+      - Contraste AA en tema claro: `--accent` #966418, `--fg-muted` #676d7b; tokens de estado `--positive`/`--danger`/
+        `--warning` e ignición `--ignicion-desde/hasta` con versión clara ≥4.5:1; ya nadie usa la paleta cruda.
+        Texto con opacidad (hint "(opcional)", series pendientes) pasado a `--fg-muted`.
+      - Objetivos táctiles: 56 px en `/sesion`, 44 px en el resto (sin controles <44 px medidos a 300 px).
+      - Nombres accesibles: switch "Perfil público", barra de progreso de medallas.
+      - Foco visible en buscadores (`focus-within`); diálogos modales con foco dentro, Tab atrapado, Escape y retorno
+        del foco (`useDialog`/`Dialogo`, los 5 modales).
+      - Scroll horizontal en móvil causado por las tablas `sr-only` (una `<table>` ignora `width:1px`): ahora el
+        `sr-only` va en un div.
+      - axe-core 4.13 (WCAG 2.0/2.1/2.2 A+AA): **0 violaciones** en `/login`, `/onboarding` y `/progreso` completo
+        (datos simulados), tema oscuro y claro. Layout de `/progreso` revisado a 300 px sin desbordes.
+      Con sesión iniciada (rama en :3098/:3099, datos reales): **0 violaciones axe** en `/hoy`, `/entrenar`,
+      `/entrenar/nueva`, `/ejercicios` (incl. chip activo y sheet de detalle), `/perfil`, `/progreso` y `/sesion`
+      (vacía, picker y logger), ambos temas. Corregido en esta vuelta: enlace activo del sidebar y chip activo
+      (oro sobre su tinte = 4.2:1 → texto `--fg`), chips de filtro a 44 px, logo del sidebar a 44 px, y en `/sesion`
+      todo a 56 px: RPE en rejilla 3×3 con `aria-pressed` + grupo con nombre (antes 32 px y estado solo por color),
+      enlaces de navegación, "Añadir ejercicio" y "Finalizar". Diálogos verificados con datos reales (foco, Escape,
+      retorno). De paso: bug de `secondary_muscles` (llegaba como texto y rompía el detalle de ejercicio).
+      Pendiente: lectores de pantalla reales (VoiceOver/TalkBack) y Lighthouse ≥95 sobre build de producción.
 
 ## Después (en orden)
 
@@ -129,3 +185,9 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.
+- Semanas en UTC: el backend agrupa con `date_trunc('week')` en la zona de la BD (UTC); una sesión del domingo
+  en la noche en México cae en la semana siguiente. Afecta gráfica y racha por igual.
+- La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
+  Dexie); aparecen al sincronizar.
+- Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
+  `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.

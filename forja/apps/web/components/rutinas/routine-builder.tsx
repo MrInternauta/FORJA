@@ -177,7 +177,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
             onClick={removeRoutine}
             disabled={deleting}
             aria-label="Eliminar rutina"
-            className="superficie flex h-10 w-10 items-center justify-center text-[var(--fg-muted)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--color-alerta)] hover:text-[var(--color-alerta)]"
+            className="superficie flex h-11 w-11 items-center justify-center text-[var(--fg-muted)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
           >
             <Trash2 size={16} strokeWidth={1.75} />
           </button>
@@ -196,7 +196,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          Descripción <span className="opacity-60">(opcional)</span>
+          Descripción <span>(opcional)</span>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -229,7 +229,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
                     onClick={() => move(ex.key, -1)}
                     disabled={i === 0}
                     aria-label={`Subir ${ex.name}`}
-                    className="superficie flex h-9 w-9 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
+                    className="superficie flex h-11 w-11 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
                   >
                     <ChevronUp size={16} strokeWidth={2} />
                   </button>
@@ -238,7 +238,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
                     onClick={() => move(ex.key, 1)}
                     disabled={i === exercises.length - 1}
                     aria-label={`Bajar ${ex.name}`}
-                    className="superficie flex h-9 w-9 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
+                    className="superficie flex h-11 w-11 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
                   >
                     <ChevronDown size={16} strokeWidth={2} />
                   </button>
@@ -246,7 +246,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
                     type="button"
                     onClick={() => setExercises((prev) => prev.filter((e) => e.key !== ex.key))}
                     aria-label={`Quitar ${ex.name}`}
-                    className="superficie flex h-9 w-9 items-center justify-center text-[var(--fg-muted)] hover:border-[var(--color-alerta)] hover:text-[var(--color-alerta)]"
+                    className="superficie flex h-11 w-11 items-center justify-center text-[var(--fg-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
                   >
                     <X size={16} strokeWidth={2} />
                   </button>
@@ -306,7 +306,7 @@ export function RoutineBuilder({ routineId, initial }: Props) {
         Añadir ejercicio
       </Button>
 
-      {error && <p className="text-sm text-[var(--color-alerta)]">{error}</p>}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
       {/* Guardar fijo inferior (wireframe §6.2) */}
       <div
@@ -372,7 +372,7 @@ function SetRow({
         onClick={onRemove}
         disabled={!canRemove}
         aria-label={`Quitar serie ${index + 1}`}
-        className="flex h-9 w-9 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
+        className="flex h-11 w-11 items-center justify-center text-[var(--fg-muted)] disabled:opacity-30"
       >
         <X size={14} strokeWidth={2} />
       </button>

@@ -6,6 +6,7 @@ import type { Exercise, MuscleGroup } from "@forja/shared";
 import { MUSCLE_GROUPS } from "@forja/shared";
 import { api } from "@/lib/api";
 import { EQUIPMENT_LABELS, MUSCLE_LABELS } from "@/lib/labels";
+import { Dialogo } from "@/components/ui/dialogo";
 
 interface Props {
   onSelect: (exercise: Exercise) => void;
@@ -39,12 +40,10 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
   }, [load, q]);
 
   return (
-    <div
+    <Dialogo
+      label="Elegir ejercicio"
+      onClose={onClose}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Elegir ejercicio"
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -57,13 +56,13 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="superficie flex h-9 w-9 items-center justify-center"
+            className="superficie flex h-11 w-11 items-center justify-center"
           >
             <X size={16} strokeWidth={1.75} className="text-[var(--fg-muted)]" />
           </button>
         </div>
 
-        <label className="superficie flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-3">
+        <label className="superficie flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]">
           <Search size={16} strokeWidth={1.75} className="text-[var(--fg-muted)]" aria-hidden />
           <input
             autoFocus
@@ -84,9 +83,10 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setMuscle(active ? null : m)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)] ${
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-sm transition-colors duration-[var(--duration-fast)] ${
                   active
-                    ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
+                    ? // Texto en --fg: el oro sobre su tinte da 4.2:1 en claro; el borde oro marca la seleccion
+                    "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--fg)]"
                     : "border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)]"
                 }`}
               >
@@ -132,6 +132,6 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </Dialogo>
   );
 }

@@ -6,6 +6,7 @@ import type { SyncRewards } from "@forja/shared";
 import { TarjetaPR } from "@/components/sesion/tarjeta-pr";
 import { achievementLabel } from "@/lib/labels";
 import { subscribeRewards } from "@/lib/offline/sync-state";
+import { Dialogo } from "@/components/ui/dialogo";
 
 type Celebracion =
   | { kind: "pr"; key: string; exerciseName: string; weightKg: number; reps: number }
@@ -88,22 +89,20 @@ function TarjetaLogro({
     : achievementLabel(item.id);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={esRacha ? "Racha semanal cumplida" : "Nueva medalla"}
+    <Dialogo
+      label={esRacha ? "Racha semanal cumplida" : "Nueva medalla"}
+      onClose={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="superficie flex w-full max-w-sm flex-col items-center gap-3 border-[var(--color-oro)] p-8 text-center"
+        className="superficie flex w-full max-w-sm flex-col items-center gap-3 border-[var(--accent)] p-8 text-center"
       >
-        <span className="texto-display text-sm tracking-widest text-[var(--color-oro)]">{titulo}</span>
+        <span className="texto-display text-sm tracking-widest text-[var(--accent)]">{titulo}</span>
         {esRacha ? (
-          <Flame size={40} strokeWidth={1.5} className="text-[var(--color-brasa)]" aria-hidden />
+          <Flame size={40} strokeWidth={1.5} className="text-[var(--ignicion-hasta)]" aria-hidden />
         ) : (
-          <Medal size={40} strokeWidth={1.5} className="text-[var(--color-oro)]" aria-hidden />
+          <Medal size={40} strokeWidth={1.5} className="text-[var(--accent)]" aria-hidden />
         )}
         <p className="texto-display text-2xl text-[var(--fg)]">{nombre}</p>
         <p className="text-sm text-[var(--fg-muted)]">
@@ -119,6 +118,6 @@ function TarjetaLogro({
           Continuar
         </button>
       </div>
-    </div>
+    </Dialogo>
   );
 }
