@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
+import { CacheFirst, ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist, StaleWhileRevalidate } from "serwist";
 import { defaultCache } from "@serwist/next/worker";
 import { FLUSH_MESSAGE, OUTBOX_SYNC_TAG } from "@/lib/offline/background-sync";
 
@@ -8,6 +8,8 @@ import { FLUSH_MESSAGE, OUTBOX_SYNC_TAG } from "@/lib/offline/background-sync";
  * - App shell: precache (lo inyecta Serwist en build).
  * - Catalogo de ejercicios: Stale-While-Revalidate (lectura offline).
  * - Media del catalogo (Supabase Storage): Cache-First con expiracion LRU.
+ * - Recompensas pendientes (/me/rewards): Network-Only. Una copia en cache
+ *   resucitaria celebraciones ya confirmadas.
  * - Resto de GETs a la API: Network-First con fallback.
  * - Mutaciones: NUNCA pasan por el SW; viven en el outbox de IndexedDB.
  * - Background Sync: el SW despierta al volver la conexion y avisa a los
@@ -43,6 +45,10 @@ const serwist = new Serwist({
           new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 }),
         ],
       }),
+    },
+    {
+      matcher: ({ url }) => apiUrl !== "" && url.href.startsWith(`${apiUrl}/me/rewards`),
+      handler: new NetworkOnly(),
     },
     {
       matcher: ({ url, request }) =>

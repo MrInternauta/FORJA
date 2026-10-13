@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import { eligibleAchievements } from "@forja/shared";
 import type {
   ExerciseLastSet,
+  RewardKind,
   SyncItemResult,
   SyncOperation,
   SyncResponse,
@@ -203,8 +204,33 @@ export class WorkoutsService {
       const newPrs = await this.detectPrs(tx, userId, exerciseIds);
       const { streakDelta, stats } = await this.recomputeStats(tx, userId);
       const newAchievements = await this.awardAchievements(tx, userId, stats);
-      return { new_prs: newPrs, new_achievements: newAchievements, streak_delta: streakDelta };
+      const rewards = { new_prs: newPrs, new_achievements: newAchievements, streak_delta: streakDelta };
+      await this.storePendingRewards(tx, userId, rewards);
+      return rewards;
     });
+  }
+
+  /**
+   * Guarda cada recompensa para celebrarla aunque esta respuesta no llegue
+   * (GET /me/rewards). Misma transaccion que el calculo: o ambas o ninguna.
+   * La racha solo se guarda si avanza: perderla nunca se anuncia (§8.2).
+   */
+  private async storePendingRewards(tx: PoolClient, userId: string, rewards: SyncRewards): Promise<void> {
+    const rows: { kind: RewardKind; payload: unknown }[] = [
+      ...rewards.new_prs.map((pr) => ({ kind: "pr" as const, payload: pr })),
+      ...rewards.new_achievements.map((id) => ({ kind: "achievement" as const, payload: { id } })),
+      ...(rewards.streak_delta > 0 ? [{ kind: "streak" as const, payload: { delta: rewards.streak_delta } }] : []),
+    ];
+    if (rows.length === 0) return;
+    await tx.query(
+      // clock_timestamp() por fila (en orden) para que se celebren como se listan: PRs, medallas, racha.
+      `insert into public.pending_rewards (user_id, kind, payload, created_at)
+       select $1, r.kind, r.payload, clock_timestamp()
+       from rows from (jsonb_to_recordset($2::jsonb) as (kind text, payload jsonb))
+            with ordinality as r(kind, payload, ord)
+       order by r.ord`,
+      [userId, JSON.stringify(rows)],
+    );
   }
 
   /**

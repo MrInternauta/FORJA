@@ -1,6 +1,13 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ACHIEVEMENT_RULES } from "@forja/shared";
-import type { AchievementMetricValues, AchievementStatus, OnboardingInput, Profile, UserStats } from "@forja/shared";
+import type {
+  AchievementMetricValues,
+  AchievementStatus,
+  OnboardingInput,
+  PendingReward,
+  Profile,
+  UserStats,
+} from "@forja/shared";
 import { DatabaseService } from "../database/database.service";
 
 @Injectable()
@@ -127,5 +134,29 @@ export class MeService {
         );
       }
     });
+  }
+
+  /**
+   * Recompensas aun sin celebrar, en el orden en que se ganaron (plan §8.3).
+   * El tope evita una cola infinita si alguien nunca abre la app con conexion.
+   */
+  async pendingRewards(userId: string): Promise<PendingReward[]> {
+    return this.db.query<PendingReward>(
+      `select id, kind, payload, created_at
+       from public.pending_rewards
+       where user_id = $1 and seen_at is null
+       order by created_at, id
+       limit 50`,
+      [userId],
+    );
+  }
+
+  /** Confirma recompensas ya mostradas. Ids ajenos o ya vistos se ignoran (idempotente). */
+  async ackRewards(userId: string, ids: string[]): Promise<void> {
+    await this.db.query(
+      `update public.pending_rewards set seen_at = now()
+       where user_id = $1 and id = any($2::uuid[]) and seen_at is null`,
+      [userId, ids],
+    );
   }
 }

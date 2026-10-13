@@ -4,7 +4,7 @@
 // Uso: pnpm --filter @forja/e2e e2e:web
 import fs from "node:fs";
 import puppeteer from "puppeteer-core";
-import { call, check, config, finish, knownIssue, near, newUser, onboard, section, sleep } from "./lib.mjs";
+import { call, check, config, finish, near, newUser, onboard, section, sleep } from "./lib.mjs";
 
 const WEB = config.web;
 const SHOTS = new URL("./shots/", import.meta.url).pathname;
@@ -84,6 +84,23 @@ async function waitFor(fn, timeout = 15000, every = 300) {
   }
   return null;
 }
+/** Cierra los diálogos de celebración uno por uno y devuelve su texto. */
+async function drainDialogs(firstTimeout = 8000) {
+  const textos = [];
+  let timeout = firstTimeout;
+  for (let i = 0; i < 8; i++) {
+    const t = await waitFor(
+      async () => ((await page.$('[role="dialog"]')) ? page.evaluate(() => document.querySelector('[role="dialog"]').innerText) : null),
+      timeout,
+    );
+    if (!t) break;
+    textos.push(t);
+    await clickText("Continuar");
+    await sleep(500);
+    timeout = 2500; // la siguiente aparece enseguida si la hay
+  }
+  return textos;
+}
 const completedSets = (w) => w.exercises.flatMap((e) => e.sets).filter((s) => s.is_completed).length;
 
 try {
@@ -137,8 +154,13 @@ try {
   check("servidor: 1 sesión terminada, 3 series, 1380 kg", server.length === 1 && server[0].ended_at && server[0].sets_completed === 3 && near(server[0].volume_kg, 1380), server);
   await clickText("Ir a Hoy");
   await page.waitForFunction(() => location.pathname === "/hoy", { timeout: 10000 });
+  const enHoy = await drainDialogs();
+  check("Hoy celebra las 2 medallas ganadas en la sesión", enHoy.length === 2 && enHoy.every((d) => /NUEVA MEDALLA/i.test(d)), enHoy);
+  check("Hoy no repite los PRs ya celebrados en el resumen", !enHoy.some((d) => /Press banca|Sentadilla/i.test(d)), enHoy);
+  check("servidor: sin recompensas pendientes", (await api("GET", "/me/rewards")).body.length === 0);
+  await page.reload({ waitUntil: "networkidle0" });
   await sleep(2500);
-  check("Hoy no repite la celebración (sin diálogo)", !(await page.$('[role="dialog"]')));
+  check("tras recargar no se repite ninguna celebración", !(await page.$('[role="dialog"]')));
 
   section("Sesión con corte de red a mitad");
   await page.goto(`${WEB}/entrenar`, { waitUntil: "networkidle0" });
@@ -194,20 +216,10 @@ try {
   check("al reconectar el outbox se vacía solo", !!local);
   server = (await api("GET", "/workouts")).body.items.find((w) => w.id === W2);
   check("servidor: sesión terminada, 3 series, 1400 kg", server?.ended_at && server.sets_completed === 3 && near(server.volume_kg, 1400), server);
-  const dlg = await waitFor(
-    async () => ((await page.$('[role="dialog"]')) ? page.evaluate(() => document.querySelector('[role="dialog"]').innerText) : null),
-    10000,
-  );
   await shot("05-reconexion");
-  knownIssue(
-    "celebración diferida del PR (banca 65)",
-    !!dlg && /Press banca/i.test(dlg) && /65/.test(dlg),
-    "la respuesta del sync que aplicó la sesión se perdió en una navegación; el reintento da skipped_stale sin recompensas (ESTADO: deuda)",
-  );
-  for (let n = 0; (await page.$('[role="dialog"]')) && n < 5; n++) {
-    await clickText("Continuar");
-    await sleep(500);
-  }
+  const alReconectar = await drainDialogs(12000);
+  check("celebración diferida del PR (banca 65) al reconectar", alReconectar.some((d) => /Press banca/i.test(d) && /65/.test(d)), alReconectar);
+  check("servidor: sin recompensas pendientes tras celebrarlas", (await api("GET", "/me/rewards")).body.length === 0);
   const prs = (await api("GET", "/analytics/prs")).body;
   check("analytics: PR banca 65×8", prs.some((p) => p.exercise_id === BENCH.id && p.weight_kg === 65 && p.reps === 8), prs);
   const stats = (await api("GET", "/me")).body.stats;
