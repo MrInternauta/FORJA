@@ -19,3 +19,7 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
 export const ACHIEVEMENT_TIERS = ["hierro", "bronce", "plata", "oro", "platino"] as const;
 export type AchievementTier = (typeof ACHIEVEMENT_TIERS)[number];
+
+/** Espejo de `pending_rewards.kind` (supabase/migrations/00000000000005_recompensas_pendientes.sql). */
+export const REWARD_KINDS = ["pr", "achievement", "streak"] as const;
+export type RewardKind = (typeof REWARD_KINDS)[number];

@@ -10,6 +10,7 @@ import { SetRow } from "@/components/sesion/set-row";
 import { Stepper } from "@/components/sesion/stepper";
 import { TarjetaPR } from "@/components/sesion/tarjeta-pr";
 import { TimerDescanso } from "@/components/sesion/timer-descanso";
+import { confirmarRecompensas, leerPendientes, prsDelResumen, type TarjetaPrResumen } from "@/lib/offline/recompensas";
 import {
   type DraftExercise,
   type DraftSet,
@@ -47,7 +48,7 @@ function SesionInner() {
     rewards: SyncResponse["rewards"] | null;
     summary: SessionSummary;
   } | null>(null);
-  const [prQueue, setPrQueue] = useState<SyncResponse["rewards"]["new_prs"]>([]);
+  const [prQueue, setPrQueue] = useState<TarjetaPrResumen[]>([]);
 
   const s = session.state;
 
@@ -90,7 +91,11 @@ function SesionInner() {
         summary={finishResult.summary}
         rewards={finishResult.rewards}
         prQueue={prQueue}
-        onDismissPr={() => setPrQueue((q) => q.slice(1))}
+        onDismissPr={() => {
+          const card = prQueue[0];
+          if (card?.confirmar) void confirmarRecompensas([card.key]);
+          setPrQueue((q) => q.slice(1));
+        }}
         onDone={() => router.replace("/hoy")}
       />
     );
@@ -108,7 +113,8 @@ function SesionInner() {
   async function handleFinish() {
     const result = await session.finish();
     setFinishResult(result);
-    setPrQueue(result.rewards?.new_prs ?? []);
+    // Sin recompensas (offline) no hay tarjetas: el shell las celebra al reconectar.
+    if (result.rewards) setPrQueue(prsDelResumen(await leerPendientes(), result.rewards.new_prs));
   }
 
   return (
@@ -352,7 +358,7 @@ function ResumenSesion({
 }: {
   summary: SessionSummary;
   rewards: SyncResponse["rewards"] | null;
-  prQueue: SyncResponse["rewards"]["new_prs"];
+  prQueue: TarjetaPrResumen[];
   onDismissPr: () => void;
   onDone: () => void;
 }) {
@@ -407,8 +413,9 @@ function ResumenSesion({
 
       {activePr && (
         <TarjetaPR
-          exerciseName={activePr.exercise_name}
-          weightKg={activePr.weight_kg}
+          key={activePr.key}
+          exerciseName={activePr.exerciseName}
+          weightKg={activePr.weightKg}
           reps={activePr.reps}
           onClose={onDismissPr}
         />

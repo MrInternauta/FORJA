@@ -7,3 +7,4 @@ export * from "./schemas/routine";
 export * from "./schemas/workout";
 export * from "./schemas/analytics";
 export * from "./schemas/achievement";
+export * from "./schemas/reward";

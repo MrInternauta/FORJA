@@ -2,7 +2,7 @@
 // Requisitos: `supabase start`, API en :3001 (`pnpm --filter @forja/api build && node apps/api/dist/main.js`).
 // Uso: pnpm --filter @forja/e2e e2e:api
 import { randomUUID } from "node:crypto";
-import { call, check, finish, near, newUser, section, signIn } from "./lib.mjs";
+import { call, check, finish, near, newUser, onboard, section, signIn } from "./lib.mjs";
 
 const iso = (d) => new Date(d).toISOString();
 const now = Date.now();
@@ -214,5 +214,41 @@ check("vitrina: primera_sesion y primer_pr ganadas", JSON.stringify(earned) === 
 check("vitrina: progreso de sesiones_10 = 2/10", (() => { const s = r.body.find((a) => a.id === "sesiones_10"); return s && s.progress?.current === 2 && s.progress?.target === 10; })(), r.body.find((a) => a.id === "sesiones_10"));
 check("B: sin workouts", (await call(B.token, "GET", "/workouts")).body.items.length === 0);
 check("B: sin PRs ni volumen", (await call(B.token, "GET", "/analytics/prs")).body.length === 0 && (await call(B.token, "GET", "/analytics/volume?weeks=4")).body.every((w) => w.volume_kg === 0));
+
+section("Recompensas pendientes de celebrar (sobreviven a una respuesta perdida)");
+const C = await newUser("c");
+await onboard(C, `e2e_c_${String(now).slice(-8)}`);
+await call(C.token, "PATCH", "/me", { weekly_goal: 2 });
+const pend = async (u = C) => (await call(u.token, "GET", "/me/rewards")).body;
+check("usuario nuevo: sin pendientes", (await pend()).length === 0);
+const R1 = randomUUID(), R1E = randomUUID(), r1Start = now - 3 * H;
+const r1Sets = [set(1, 70, 5)];
+await call(C.token, "POST", "/sync/workouts", { operations: [upsert(workout({ id: R1, started_at: r1Start, exercises: [{ weId: R1E, exercise_id: BENCH.id, sets: r1Sets }] }))] });
+check("sync a mitad de sesión: no deja pendientes", (await pend()).length === 0);
+const r1Final = workout({ id: R1, started_at: r1Start, ended_at: r1Start + 30 * 60_000, exercises: [{ weId: R1E, exercise_id: BENCH.id, sets: r1Sets }] });
+// La respuesta de este POST se "pierde": el cliente no la lee
+await call(C.token, "POST", "/sync/workouts", { operations: [upsert(r1Final)] });
+let p1 = await pend();
+check("al terminar: PR + 2 medallas pendientes, en orden", JSON.stringify(p1.map((r) => r.kind)) === JSON.stringify(["pr", "achievement", "achievement"]), p1);
+check("payload del PR completo", p1[0]?.payload?.exercise_id === BENCH.id && p1[0].payload.exercise_name === "Press banca" && p1[0].payload.weight_kg === 70 && p1[0].payload.reps === 5, p1[0]);
+check("medallas primera_sesion y primer_pr", p1.slice(1).map((r) => r.payload.id).sort().join() === "primer_pr,primera_sesion", p1);
+r = await call(C.token, "POST", "/sync/workouts", { operations: [upsert(r1Final)] });
+check("reintento tras respuesta perdida: skipped_stale sin recompensas…", r.body.results[0].status === "skipped_stale" && r.body.rewards.new_prs.length === 0);
+check("…pero las pendientes siguen ahí (y sin duplicarse)", (await pend()).length === 3);
+check("B no ve las pendientes de C", (await pend(B)).length === 0);
+check("ack de B sobre ids de C → 204 sin efecto", (await call(B.token, "POST", "/me/rewards/ack", { ids: p1.map((x) => x.id) })).status === 204 && (await pend()).length === 3);
+check("ack del PR → 204", (await call(C.token, "POST", "/me/rewards/ack", { ids: [p1[0].id] })).status === 204);
+check("quedan solo las medallas", JSON.stringify((await pend()).map((x) => x.id)) === JSON.stringify(p1.slice(1).map((x) => x.id)));
+check("ack repetido → 204 (idempotente)", (await call(C.token, "POST", "/me/rewards/ack", { ids: [p1[0].id] })).status === 204);
+check("ack con body inválido → 400", (await call(C.token, "POST", "/me/rewards/ack", { ids: ["no-es-uuid"] })).status === 400 && (await call(C.token, "POST", "/me/rewards/ack", { ids: [] })).status === 400);
+check("GET /me/rewards sin token → 401", (await call(null, "GET", "/me/rewards")).status === 401);
+await call(C.token, "POST", "/me/rewards/ack", { ids: p1.map((x) => x.id) });
+const R2 = workout({ started_at: now - 2 * H, ended_at: now - 2 * H + 30 * 60_000, exercises: [{ exercise_id: BENCH.id, sets: [set(1, 72.5, 5)] }] });
+await call(C.token, "POST", "/sync/workouts", { operations: [upsert(R2)] });
+const p2 = await pend();
+check("2ª sesión (objetivo 2 cumplido): PR + racha pendientes", JSON.stringify(p2.map((x) => x.kind)) === JSON.stringify(["pr", "streak"]) && p2[1].payload.delta === 1, p2);
+await call(C.token, "POST", "/me/rewards/ack", { ids: p2.map((x) => x.id) });
+await call(C.token, "POST", "/sync/workouts", { operations: [{ op: "delete", workout_id: R2.id, client_updated_at: tick() }] });
+check("borrar la sesión del PR (baja) no deja pendientes", (await pend()).length === 0);
 
 finish();

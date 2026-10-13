@@ -195,8 +195,8 @@ de `supabase status` o de `SUPA_ANON`/`SUPA_SERVICE`; Chrome de `CHROME_PATH`.
 
 | Suite | Qué cubre | Resultado |
 |---|---|---|
-| `e2e/api.mjs` | Auth/JWT con `user_role`, onboarding, catálogo, rutinas y límite FREE, logger por sync (series a mitad de sesión, finalizar, PRs, medallas, racha), reenvío idéntico, LWW, lote con ítem roto, sesión abandonada, borrado, corrección de PRs, analytics, vitrina y aislamiento entre usuarios | **85/85** |
-| `e2e/web.mjs` | Navegador real contra build de producción con SW: sesión desde rutina con los botones del logger, resumen y tarjetas de PR, outbox local-first; corte de red a mitad, recarga dura offline, finalizar offline, Hoy offline, reconexión y sync automático | **29/29** + 1 conocido |
+| `e2e/api.mjs` | Recompensas pendientes, auth/JWT con `user_role`, onboarding, catálogo, rutinas y límite FREE, logger por sync (series a mitad de sesión, finalizar, PRs, medallas, racha), reenvío idéntico, LWW, lote con ítem roto, sesión abandonada, borrado, corrección de PRs, analytics, vitrina y aislamiento entre usuarios | **101/101** |
+| `e2e/web.mjs` | Navegador real contra build de producción con SW: sesión desde rutina con los botones del logger, resumen y tarjetas de PR, outbox local-first; corte de red a mitad, recarga dura offline, finalizar offline, Hoy offline, reconexión y sync automático | **34/34** |
 
 Corregido en este cierre (cada fix con su prueba; las suites fallan con el código anterior):
 
@@ -210,22 +210,33 @@ Corregido en este cierre (cada fix con su prueba; las suites fallan con el códi
   silencio con la fecha de la sesión que ahora lo sostiene, o desaparece si no quedan series.
 - **Copy de `BarraSync`**: "1 sesión guardadas aquí" / "1 sesión pendientes de subir" (concordancia).
 
-Conocido, sin corregir (decisión de diseño pendiente): ver "Recompensas perdidas si se pierde la respuesta del
-sync" en la deuda técnica.
+### Recompensas pendientes: ninguna celebración se pierde (2026-10-13)
+
+Antes las recompensas solo viajaban en la respuesta del POST de sync que APLICABA la sesión: si esa respuesta se
+perdía (navegación al reconectar, red que cae a mitad, app cerrada), el reintento daba `skipped_stale` sin
+recompensas y la celebración se perdía aunque el PR quedara guardado. Además las medallas y la racha de una sesión
+terminada ONLINE nunca se celebraban (el resumen de `/sesion` solo muestra PRs y el shell no está montado ahí).
+
+- Migración `0005_recompensas_pendientes.sql`: tabla `pending_rewards` (`kind` pr/achievement/streak, `payload`,
+  `seen_at`) con RLS de lectura propia. `REWARD_KINDS` espejo en `@forja/shared`. **En producción hay que aplicarla
+  (`supabase db push`).**
+- El sync escribe cada recompensa en la misma transacción que la calcula. `GET /me/rewards` (no vistas, en orden,
+  máx. 50) y `POST /me/rewards/ack` (204, idempotente, solo las propias).
+- `CelebracionesDiferidas` celebra desde el servidor (al montar, cuando un sync trae recompensas y al terminar cada
+  pasada) y confirma cada una al cerrarla. Entrega "al menos una vez": un ack fallido se recuerda en localStorage,
+  se oculta y se reintenta. El SW no cachea `/me/rewards` (Network-Only).
+- `/sesion` celebra sus PRs con las pendientes del servidor y los confirma; medallas y racha las celebra Hoy al
+  volver. Copy de la racha neutral ("Cumpliste tu objetivo de la semana": ya no implica offline).
+- Pruebas: `recompensas.test.ts` (11), E2E API **101/101** (respuesta perdida, sin duplicados, ack ajeno, 400/401,
+  racha, bajada sin pendiente), E2E navegador **34/34** (medallas en Hoy sin repetir PRs, nada se repite al recargar,
+  PR diferido al reconectar).
 
 ## Después (en orden)
 
-1. Decidir cómo persistir recompensas no vistas (deuda abajo) y la pasada manual con VoiceOver/TalkBack.
+1. Pasada manual con VoiceOver/TalkBack y aplicar la migración 0005 en el Supabase de producción.
 2. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
 
 ## Deuda técnica registrada
-
-- **Recompensas perdidas si se pierde la respuesta del sync.** Las recompensas solo viajan en la respuesta del
-  POST que APLICA la sesión. Si esa respuesta no llega (navegación o recarga en el momento de reconectar, red que
-  cae a mitad de la petición, app cerrada), el reintento responde `skipped_stale` sin recompensas y la celebración
-  se pierde aunque el PR sí quede guardado. Reproducido en `e2e/web.mjs` (marcado como conocido). Además el bus de
-  `sync-state.ts` es en memoria: sin suscriptor en ese instante, se descarta. Arreglo propuesto: el servidor guarda
-  las recompensas no vistas y el cliente las pide y confirma al arrancar.
 
 - `next/font` en lugar de `<link>` a Google Fonts (flash tipográfico; ~850 ms de render bloqueado, Lighthouse
   escritorio de `/login` en 85).

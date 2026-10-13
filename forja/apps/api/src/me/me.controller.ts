@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Patch, Post } from "@nestjs/common";
 import { z } from "zod";
-import { OnboardingSchema } from "@forja/shared";
+import { AckRewardsSchema, OnboardingSchema } from "@forja/shared";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { JwtUser } from "../auth/jwt-user";
 import { zodParse } from "../common/zod";
@@ -36,6 +36,18 @@ export class MeController {
   @Get("me/achievements")
   achievements(@CurrentUser() user: JwtUser) {
     return this.me.achievements(user.id);
+  }
+
+  /** Recompensas pendientes de celebrar: sobreviven a una respuesta de sync perdida (§8.3). */
+  @Get("me/rewards")
+  pendingRewards(@CurrentUser() user: JwtUser) {
+    return this.me.pendingRewards(user.id);
+  }
+
+  @Post("me/rewards/ack")
+  @HttpCode(204)
+  async ackRewards(@CurrentUser() user: JwtUser, @Body() body: unknown) {
+    await this.me.ackRewards(user.id, zodParse(AckRewardsSchema, body).ids);
   }
 
   @Patch("me")
