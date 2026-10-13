@@ -11,7 +11,11 @@ export function RachaChip({ weeks }: { weeks: number }) {
       title={`Racha: ${weeks} ${weeks === 1 ? "semana" : "semanas"}`}
     >
       <Flame size={15} strokeWidth={2} aria-hidden />
-      <span className="texto-dato">{weeks}</span>
+      {/* Sin esto el lector solo dice "1": el contexto lo da la llama, que es decorativa */}
+      <span className="texto-dato" aria-hidden>
+        {weeks}
+      </span>
+      <span className="sr-only">{`Racha de ${weeks} ${weeks === 1 ? "semana" : "semanas"}`}</span>
     </span>
   );
 }

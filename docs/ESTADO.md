@@ -1,6 +1,6 @@
 # ESTADO.md — Bitácora del proyecto
 
-Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-09-20.
+Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-10-12.
 
 ## Decisiones de contexto confirmadas
 
@@ -166,7 +166,18 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       todo a 56 px: RPE en rejilla 3×3 con `aria-pressed` + grupo con nombre (antes 32 px y estado solo por color),
       enlaces de navegación, "Añadir ejercicio" y "Finalizar". Diálogos verificados con datos reales (foco, Escape,
       retorno). De paso: bug de `secondary_muscles` (llegaba como texto y rompía el detalle de ejercicio).
-      Pendiente: lectores de pantalla reales (VoiceOver/TalkBack) y Lighthouse ≥95 sobre build de producción.
+      **Lighthouse 12 sobre build de producción (2026-10-12)**, sesión iniciada con datos reales, 8 rutas × 2 temas:
+      accesibilidad, buenas prácticas y SEO **100** en todas (móvil y escritorio); rendimiento móvil 99–100.
+      Escritorio: `/login` 85 (Google Fonts bloquea el render ~850 ms en frío → deuda `next/font`) y `/progreso` 93
+      (CLS 0.116: la tarjeta del heatmap cambia de alto al llegar los datos).
+      Árbol de accesibilidad de Chrome revisado (lo que leen los lectores de pantalla): tablas `sr-only` con
+      encabezados de fila/columna, `dialog` con nombre, landmarks `main`/`navigation`. Corregido: el chip de racha
+      solo anunciaba "1" (ahora "Racha de 1 semana") y en `/entrenar` vacío "Entrenamiento libre" era un botón
+      dentro de un enlace (control anidado, dos paradas de foco).
+      Pendiente: pasada MANUAL con VoiceOver (iOS Safari) y TalkBack (Android Chrome): no se puede automatizar.
+      Guion: login → Hoy → empezar sesión libre → añadir ejercicio → completar serie (stepper, RPE) → finalizar →
+      resumen; abrir y cerrar el detalle de un ejercicio (¿el rotor sale del diálogo? Chrome no poda el fondo con
+      `aria-modal`; si VoiceOver lo lee, añadir `inert` al resto); recorrer gráfica y heatmap con flechas.
 
 ## Después (en orden)
 
@@ -176,7 +187,9 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
 
 ## Deuda técnica registrada
 
-- `next/font` en lugar de `<link>` a Google Fonts (flash tipográfico).
+- `next/font` en lugar de `<link>` a Google Fonts (flash tipográfico; ~850 ms de render bloqueado, Lighthouse
+  escritorio de `/login` en 85).
+- CLS 0.116 en `/progreso` (escritorio): el esqueleto del heatmap no reserva el alto final.
 - Drag & drop con handle en el builder (hoy flechas).
 - `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
 - `skipped_stale` en cliente: traer copia del servidor y reemplazar la local (TODO en `lib/offline/sync.ts`).

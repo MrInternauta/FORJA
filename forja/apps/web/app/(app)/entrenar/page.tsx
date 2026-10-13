@@ -8,7 +8,6 @@ import { PLAN_LIMITS } from "@forja/shared";
 import { api } from "@/lib/api";
 import { useMe } from "@/components/auth/auth-gate";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 export default function EntrenarPage() {
   const { profile } = useMe();
@@ -63,8 +62,11 @@ export default function EntrenarPage() {
             >
               Nueva rutina
             </Link>
-            <Link href="/sesion">
-              <Button variant="ghost">Entrenamiento libre</Button>
+            <Link
+              href="/sesion"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border)] px-5 text-sm text-[var(--fg)] transition-[color,border-color] duration-[var(--duration-fast)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              Entrenamiento libre
             </Link>
           </div>
         </Card>
