@@ -11,9 +11,16 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "standalone",
-  // Monorepo: raiz de trazado para que standalone incluya @forja/shared.
-  outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Standalone es para la imagen OCI. En Vercel no: su empaquetado resuelve las
+  // trazas contra la raiz del repo git (una arriba de forja/) y con esta raiz
+  // buscaba apps/web/... en vez de forja/apps/web/...
+  ...(process.env.VERCEL
+    ? {}
+    : {
+        output: "standalone" as const,
+        // Monorepo: raiz de trazado para que standalone incluya @forja/shared.
+        outputFileTracingRoot: path.join(__dirname, "../../"),
+      }),
 };
 
 export default withSerwist(nextConfig);
