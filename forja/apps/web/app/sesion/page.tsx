@@ -52,10 +52,6 @@ function SesionInner() {
   const s = session.state;
 
   useEffect(() => {
-    if (session.redirectTo) router.replace(session.redirectTo);
-  }, [session.redirectTo, router]);
-
-  useEffect(() => {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       void Notification.requestPermission();
     }
@@ -69,7 +65,6 @@ function SesionInner() {
     return () => clearInterval(id);
   }, [s?.startedAt]);
 
-  if (session.redirectTo) return null;
   if (session.status === "loading") return <FullScreenMessage>Preparando tu sesión…</FullScreenMessage>;
   if (session.status === "error") {
     return (

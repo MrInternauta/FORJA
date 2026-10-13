@@ -59,6 +59,25 @@ export async function getLocalWorkout(id: string): Promise<LocalWorkout | undefi
   return localDb.workouts.get(id);
 }
 
+/**
+ * Que sesion local abre /sesion: la de `?resume=` o, si no viene, la que siga
+ * sin terminar (una sola activa a la vez). `null` = no hay que reanudar nada.
+ * `fromUrl` dice si la URL ya apunta a ella; si no, el logger la reanuda EN SU
+ * SITIO y solo reescribe la URL: redirigir con el router pide el payload RSC al
+ * servidor y offline la pantalla se quedaba en blanco.
+ */
+export async function pickLocalSession(
+  resumeId?: string,
+): Promise<{ workout: LocalWorkout; fromUrl: boolean } | null> {
+  if (resumeId) {
+    const workout = await getLocalWorkout(resumeId);
+    if (!workout) throw new Error("Sesion no encontrada");
+    return { workout, fromUrl: true };
+  }
+  const active = await getActiveLocalWorkout();
+  return active ? { workout: active, fromUrl: false } : null;
+}
+
 /** Descarta una sesion (p. ej. desde la pildora): borra local y encola el delete por si ya sincronizo. */
 export async function discardLocalWorkout(id: string): Promise<void> {
   await localDb.transaction("rw", localDb.workouts, localDb.outbox, async () => {
