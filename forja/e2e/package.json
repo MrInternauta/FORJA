@@ -1,0 +1,15 @@
+{
+  "name": "@forja/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "E2E de cierre de fase: API contra Postgres real y navegador contra el build de producción",
+  "scripts": {
+    "e2e": "node api.mjs && node web.mjs",
+    "e2e:api": "node api.mjs",
+    "e2e:web": "node web.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.13.0"
+  }
+}

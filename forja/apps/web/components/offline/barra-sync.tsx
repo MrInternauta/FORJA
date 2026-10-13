@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { CloudOff, RefreshCw, TriangleAlert } from "lucide-react";
 import { getServerSyncState, getSyncState, subscribeSyncState } from "@/lib/offline/sync-state";
 import { flushOutbox } from "@/lib/offline/sync";
+import { mensajeSync } from "@/lib/offline/mensaje-sync";
 
 /**
  * `BarraSync` (plan §6.1 / gamificacion §8.2): franja discreta que solo aparece
@@ -15,28 +16,13 @@ export function BarraSync() {
   const state = useSyncExternalStore(subscribeSyncState, getSyncState, getServerSyncState);
   const { phase, pending, online } = state;
 
-  if (pending === 0 && online && phase !== "error") return null;
+  const copy = mensajeSync({ phase, pending, online });
+  if (!copy) return null;
+  const { message } = copy;
 
-  const sesiones = `${pending} ${pending === 1 ? "sesión" : "sesiones"}`;
-
-  let Icon = RefreshCw;
-  let tone = "text-[var(--fg-muted)]";
-  let message: string;
-  let spinning = false;
-
-  if (!online) {
-    Icon = CloudOff;
-    message = pending > 0 ? `Sin conexión · ${sesiones} guardadas aquí` : "Sin conexión";
-  } else if (phase === "syncing") {
-    message = pending > 0 ? `Sincronizando ${sesiones}…` : "Sincronizando…";
-    spinning = true;
-  } else if (phase === "error") {
-    Icon = TriangleAlert;
-    tone = "text-[var(--warning)]";
-    message = pending > 0 ? `${sesiones} pendientes de subir` : "Reintentando la sincronización";
-  } else {
-    message = `${sesiones} por sincronizar`;
-  }
+  const Icon = copy.tono === "offline" ? CloudOff : copy.tono === "error" ? TriangleAlert : RefreshCw;
+  const tone = copy.tono === "error" ? "text-[var(--warning)]" : "text-[var(--fg-muted)]";
+  const spinning = copy.tono === "syncing";
 
   const canRetry = online && phase !== "syncing" && pending > 0;
 

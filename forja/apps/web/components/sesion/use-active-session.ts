@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exercise, ExerciseLastSet, RoutineDetail, SyncResponse, Workout } from "@forja/shared";
 import { api } from "@/lib/api";
 import {
   discardLocalWorkout,
-  getActiveLocalWorkout,
-  getLocalWorkout,
+  pickLocalSession,
   upsertLocalWorkout,
 } from "@/lib/offline/db";
 import { flushOutbox } from "@/lib/offline/sync";
@@ -122,16 +121,18 @@ export function useActiveSession(opts: { routineId?: string; resumeId?: string }
   const { routineId, resumeId } = opts;
   const [state, setState] = useState<State | null>(null);
   const [status, setStatus] = useState<Status>("loading");
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  /** Sesion ya cargada: al reescribir la URL a `?resume=` el efecto se re-ejecuta y no hay que recargarla. */
+  const loadedId = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        if (resumeId) {
-          const local = await getLocalWorkout(resumeId);
-          if (!local) throw new Error("Sesion no encontrada");
+        if (resumeId && loadedId.current === resumeId) return;
+        const picked = await pickLocalSession(resumeId);
+        if (picked) {
+          const local = picked.workout;
           const names = await fetchExerciseNames(local.exercises.map((e) => e.exercise_id));
           const exercises: DraftExercise[] = local.exercises
             .slice()
@@ -167,13 +168,10 @@ export function useActiveSession(opts: { routineId?: string; resumeId?: string }
             restResetKey: 0,
           });
           setStatus("active");
-          return;
-        }
-
-        // Solo una sesion activa a la vez: si ya hay una sin terminar, se retoma.
-        const existing = await getActiveLocalWorkout();
-        if (existing) {
-          if (!cancelled) setRedirectTo(`/sesion?resume=${existing.id}`);
+          loadedId.current = local.id;
+          // Solo una sesion activa a la vez: si se abrio con ?routine= (o sin nada) y
+          // ya habia una, se retoma aqui mismo. Sin router: offline no hay payload RSC.
+          if (!picked.fromUrl) window.history.replaceState(null, "", `/sesion?resume=${local.id}`);
           return;
         }
 
@@ -391,7 +389,6 @@ export function useActiveSession(opts: { routineId?: string; resumeId?: string }
   return {
     status,
     state,
-    redirectTo,
     updateCurrentSet,
     completeCurrentSet,
     addSetToCurrent,

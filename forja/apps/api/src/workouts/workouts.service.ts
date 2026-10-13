@@ -96,15 +96,24 @@ export class WorkoutsService {
     for (const op of operations) {
       try {
         if (op.op === "delete") {
-          await this.db.query(
-            "delete from public.workouts where id = $1 and user_id = $2",
+          // Sus ejercicios pueden perder el PR: se recalculan tras borrar.
+          const rows = await this.db.query<{ exercise_id: string }>(
+            `with gone as (
+               delete from public.workouts where id = $1 and user_id = $2 returning id
+             )
+             select distinct we.exercise_id
+             from public.workout_exercises we join gone on gone.id = we.workout_id`,
             [op.workout_id, userId],
           );
+          for (const r of rows) touchedExercises.add(r.exercise_id);
           results.push({ id: op.workout_id, status: "applied" }); // idempotente
         } else {
-          const status = await this.db.tx((tx) => this.upsertWorkout(tx, userId, op.workout));
+          const { status, previousExerciseIds } = await this.db.tx((tx) =>
+            this.upsertWorkout(tx, userId, op.workout),
+          );
           if (status === "applied") {
             for (const ex of op.workout.exercises) touchedExercises.add(ex.exercise_id);
+            for (const id of previousExerciseIds) touchedExercises.add(id);
           }
           results.push({ id: op.workout.id, status });
         }
@@ -132,7 +141,8 @@ export class WorkoutsService {
     tx: PoolClient,
     userId: string,
     w: Workout,
-  ): Promise<"applied" | "skipped_stale"> {
+  ): Promise<{ status: "applied" | "skipped_stale"; previousExerciseIds: string[] }> {
+    let previousExerciseIds: string[] = [];
     const existing = await tx.query<{ user_id: string; client_updated_at: string }>(
       "select user_id, client_updated_at from public.workouts where id = $1 for update",
       [w.id],
@@ -145,7 +155,7 @@ export class WorkoutsService {
         throw new Error("El id de workout pertenece a otro usuario");
       }
       if (new Date(row.client_updated_at) >= new Date(w.client_updated_at)) {
-        return "skipped_stale";
+        return { status: "skipped_stale", previousExerciseIds: [] };
       }
       await tx.query(
         `update public.workouts
@@ -154,8 +164,13 @@ export class WorkoutsService {
          where id = $1`,
         [w.id, w.routine_id ?? null, w.title, w.notes ?? null, w.started_at, w.ended_at ?? null, w.client_updated_at],
       );
-      // Reemplazo completo de hijos (cascada borra los sets):
-      await tx.query("delete from public.workout_exercises where workout_id = $1", [w.id]);
+      // Reemplazo completo de hijos (cascada borra los sets). Los ejercicios que
+      // tenia se devuelven: si una edicion los quita o baja el peso, su PR se recalcula.
+      const removed = await tx.query<{ exercise_id: string }>(
+        "delete from public.workout_exercises where workout_id = $1 returning exercise_id",
+        [w.id],
+      );
+      previousExerciseIds = [...new Set(removed.rows.map((r) => r.exercise_id))];
     } else {
       await tx.query(
         `insert into public.workouts (id, user_id, routine_id, title, notes, started_at, ended_at, client_updated_at)
@@ -178,7 +193,7 @@ export class WorkoutsService {
         );
       }
     }
-    return "applied";
+    return { status: "applied", previousExerciseIds };
   }
 
   /* ============================ Recompensas ============================ */
@@ -196,7 +211,11 @@ export class WorkoutsService {
    * PR = mejor peso por ejercicio (desempate por reps), sobre sets completados
    * de sesiones TERMINADAS. Los syncs a mitad de sesion no otorgan PRs: asi el
    * PR llega en el sync que cierra la sesion y lo celebra su resumen.
-   * Se materializa en exercise_prs; solo devolvemos los que MEJORAN.
+   *
+   * Se RECALCULA desde los datos para cada ejercicio afectado, asi que
+   * exercise_prs siempre es la verdad: si se borra o corrige la sesion que tenia
+   * el PR, baja al siguiente mejor (con la fecha de esa sesion) o desaparece si
+   * no quedan series. Solo se devuelven —y celebran— los que MEJORAN.
    */
   private async detectPrs(tx: PoolClient, userId: string, exerciseIds: string[]) {
     if (exerciseIds.length === 0) return [];
@@ -211,9 +230,10 @@ export class WorkoutsService {
                 ws.weight_kg,
                 ws.reps,
                 w.id as workout_id,
+                w.ended_at,
                 row_number() over (
                   partition by we.exercise_id
-                  order by ws.weight_kg desc, ws.reps desc
+                  order by ws.weight_kg desc, ws.reps desc, w.ended_at, w.id
                 ) as rn
          from public.workout_sets ws
          join public.workout_exercises we on we.id = ws.workout_exercise_id
@@ -221,24 +241,47 @@ export class WorkoutsService {
          where w.user_id = $1 and w.ended_at is not null and ws.is_completed
            and we.exercise_id = any($2::uuid[])
        ),
+       top as (select * from best where rn = 1),
+       -- Todas las sub-sentencias ven la foto previa: prev es el PR de antes del sync.
+       prev as (
+         select exercise_id, weight_kg, reps
+         from public.exercise_prs
+         where user_id = $1 and exercise_id = any($2::uuid[])
+       ),
+       removed as (
+         delete from public.exercise_prs p
+         where p.user_id = $1 and p.exercise_id = any($2::uuid[])
+           and not exists (select 1 from top t where t.exercise_id = p.exercise_id)
+       ),
        upserted as (
-         insert into public.exercise_prs (user_id, exercise_id, weight_kg, reps, workout_id)
-         select $1, exercise_id, weight_kg, reps, workout_id from best where rn = 1
+         insert into public.exercise_prs (user_id, exercise_id, weight_kg, reps, workout_id, achieved_at)
+         select $1, t.exercise_id, t.weight_kg, t.reps, t.workout_id,
+                case
+                  when p.exercise_id is null
+                    or t.weight_kg > p.weight_kg
+                    or (t.weight_kg = p.weight_kg and t.reps > p.reps) then now()
+                  else t.ended_at -- bajo a un PR anterior: conserva la fecha de esa sesion
+                end
+         from top t
+         left join prev p on p.exercise_id = t.exercise_id
          on conflict (user_id, exercise_id) do update
            set weight_kg = excluded.weight_kg,
                reps = excluded.reps,
                workout_id = excluded.workout_id,
-               achieved_at = now()
-           where excluded.weight_kg > public.exercise_prs.weight_kg
-              or (excluded.weight_kg = public.exercise_prs.weight_kg
-                  and excluded.reps > public.exercise_prs.reps)
-         returning exercise_id, weight_kg, reps,
-                   (xmax = 0) as inserted
+               achieved_at = excluded.achieved_at
+           where excluded.weight_kg <> public.exercise_prs.weight_kg
+              or excluded.reps <> public.exercise_prs.reps
+              or excluded.workout_id is distinct from public.exercise_prs.workout_id
+         returning exercise_id, weight_kg, reps
        )
        select u.exercise_id, e.name as exercise_name,
               u.weight_kg::float8 as weight_kg, u.reps::int as reps
        from upserted u
-       join public.exercises e on e.id = u.exercise_id`,
+       join public.exercises e on e.id = u.exercise_id
+       left join prev p on p.exercise_id = u.exercise_id
+       where p.exercise_id is null
+          or u.weight_kg > p.weight_kg
+          or (u.weight_kg = p.weight_kg and u.reps > p.reps)`,
       [userId, exerciseIds],
     );
     return rows;
@@ -253,7 +296,8 @@ export class WorkoutsService {
     const {
       rows: [totals],
     } = await tx.query<{ total_volume_kg: number; total_workouts: number }>(
-      `select coalesce(sum(ws.weight_kg * ws.reps) filter (where ws.is_completed), 0)::float8 as total_volume_kg,
+      // Como PRs y analytics: solo sesiones TERMINADAS (una abandonada no suma para medallas de volumen).
+      `select coalesce(sum(ws.weight_kg * ws.reps) filter (where ws.is_completed and w.ended_at is not null), 0)::float8 as total_volume_kg,
               count(distinct w.id) filter (where w.ended_at is not null)::int as total_workouts
        from public.workouts w
        left join public.workout_exercises we on we.workout_id = w.id
