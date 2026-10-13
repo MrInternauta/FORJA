@@ -27,7 +27,7 @@ await api("POST", "/routines", {
 });
 
 /* ===== Navegador ===== */
-const browser = await puppeteer.launch({ executablePath: config.chrome, headless: "new" });
+const browser = await puppeteer.launch({ executablePath: config.chrome, headless: true });
 const page = await browser.newPage();
 await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
 const pageErrors = [];

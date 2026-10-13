@@ -10,6 +10,6 @@
     "e2e:web": "node web.mjs"
   },
   "devDependencies": {
-    "puppeteer-core": "^23.11.1"
+    "puppeteer-core": "^25.13.0"
   }
 }
