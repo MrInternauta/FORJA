@@ -31,7 +31,7 @@ export default function EntrenarPage() {
           <Link
             href="/entrenar/nueva"
             aria-disabled={atLimit}
-            className={`superficie flex min-h-10 items-center gap-1.5 px-3 text-sm text-[var(--fg)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--accent)] ${
+            className={`superficie flex min-h-11 items-center gap-1.5 px-3 text-sm text-[var(--fg)] transition-colors duration-[var(--duration-fast)] hover:border-[var(--accent)] ${
               atLimit ? "pointer-events-none opacity-50" : ""
             }`}
           >
@@ -86,14 +86,14 @@ export default function EntrenarPage() {
                   <Link
                     href={`/entrenar/${r.id}/editar`}
                     aria-label={`Editar ${r.name}`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center text-[var(--fg-muted)] hover:text-[var(--fg)]"
                   >
                     <Pencil size={16} strokeWidth={1.75} />
                   </Link>
                   <Link
                     href={`/sesion?routine=${r.id}`}
                     aria-label={`Empezar ${r.name}`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
                   >
                     <Play size={15} strokeWidth={2.25} />
                   </Link>

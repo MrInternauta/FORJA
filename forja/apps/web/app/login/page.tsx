@@ -74,7 +74,7 @@ export default function LoginPage() {
             />
           </label>
 
-          {error && <p className="text-sm text-[var(--color-alerta)]">{error}</p>}
+          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
           <Button type="submit" disabled={loading}>
             {loading ? "Un momento…" : mode === "login" ? "Entrar" : "Crear cuenta"}

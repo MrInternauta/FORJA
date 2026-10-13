@@ -1,9 +1,12 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import type { OnboardingInput, Profile, UserStats } from "@forja/shared";
+import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ACHIEVEMENT_RULES } from "@forja/shared";
+import type { AchievementMetricValues, AchievementStatus, OnboardingInput, Profile, UserStats } from "@forja/shared";
 import { DatabaseService } from "../database/database.service";
 
 @Injectable()
 export class MeService {
+  private readonly logger = new Logger(MeService.name);
+
   constructor(private readonly db: DatabaseService) {}
 
   /** Crea profiles + user_stats tras el primer login (arquitectura §5, paso 3). */
@@ -43,6 +46,59 @@ export class MeService {
       [userId],
     );
     return { profile, stats };
+  }
+
+  /**
+   * Catalogo completo de logros con el estado del usuario: ganados con fecha y
+   * bloqueados con su progreso (vitrina "aspiracional", diseno §8.1).
+   * Contrato: GET /me/achievements.
+   */
+  async achievements(userId: string): Promise<AchievementStatus[]> {
+    const [values] = await this.db.query<AchievementMetricValues>(
+      `select s.total_workouts as workouts,
+              s.total_volume_kg::float8 as volume_kg,
+              s.longest_streak as streak_weeks,
+              (select count(*)::int from public.exercise_prs p where p.user_id = s.user_id) as prs
+       from public.user_stats s where s.user_id = $1`,
+      [userId],
+    );
+    if (!values) throw new NotFoundException("Perfil no encontrado: completa el onboarding");
+
+    const rows = await this.db.query<{
+      id: string;
+      name: string;
+      description: string;
+      tier: AchievementStatus["tier"];
+      earned_at: string | null;
+    }>(
+      `select a.id, a.name, a.description, a.tier, ua.earned_at
+       from public.achievements a
+       left join public.user_achievements ua
+         on ua.achievement_id = a.id and ua.user_id = $1
+       order by a.sort_order`,
+      [userId],
+    );
+
+    return rows.flatMap((a) => {
+      const rule = ACHIEVEMENT_RULES[a.id];
+      if (!rule) {
+        // Logro sembrado sin regla en @forja/shared: se omite en vez de tumbar la vitrina.
+        this.logger.warn(`Logro sin regla en @forja/shared: ${a.id}`);
+        return [];
+      }
+      return {
+        ...a,
+        metric: rule.metric,
+        progress:
+          rule.measurable === false
+            ? null
+            : {
+                // Ganado = completo aunque la metrica baje despues (p. ej. borrar un workout).
+                current: a.earned_at ? rule.target : Math.min(values[rule.metric], rule.target),
+                target: rule.target,
+              },
+      };
+    });
   }
 
   async updateMe(

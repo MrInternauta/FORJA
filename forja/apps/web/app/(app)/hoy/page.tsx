@@ -139,7 +139,7 @@ export default function HoyPage() {
           {suggested ? `Empezar: ${suggested.name}` : "Empezar entrenamiento"}
         </Link>
         {suggested && (
-          <Link href="/entrenar" className="text-sm text-[var(--fg-muted)] hover:text-[var(--fg)]">
+          <Link href="/entrenar" className="inline-flex min-h-11 items-center px-2 text-sm text-[var(--fg-muted)] hover:text-[var(--fg)]">
             o elige otra rutina / libre
           </Link>
         )}

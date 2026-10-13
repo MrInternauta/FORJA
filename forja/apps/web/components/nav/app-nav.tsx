@@ -54,7 +54,7 @@ export function AppNav() {
         aria-label="Principal"
         className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-[var(--border)] bg-[var(--surface)] p-4 lg:flex"
       >
-        <Link href="/hoy" className="texto-display mb-8 px-2 text-xl text-[var(--fg)]">
+        <Link href="/hoy" className="texto-display mb-8 flex min-h-11 items-center px-2 text-xl text-[var(--fg)]">
           Forja
         </Link>
         <ul className="flex flex-col gap-1">
@@ -65,9 +65,10 @@ export function AppNav() {
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors duration-[var(--duration-fast)] ${
+                  className={`flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors duration-[var(--duration-fast)] ${
                     active
-                      ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
+                      ? // Texto en --fg: el oro sobre su propio tinte bajaba a 4.2:1 en claro; el icono lleva el oro
+                        "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--fg)] [&>svg]:text-[var(--accent)]"
                       : "text-[var(--fg-muted)] hover:bg-[color-mix(in_srgb,var(--fg)_6%,transparent)] hover:text-[var(--fg)]"
                   }`}
                 >

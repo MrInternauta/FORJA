@@ -33,7 +33,8 @@ export class ExercisesService {
     }
 
     const items = await this.db.query<Exercise>(
-      `select id, name, description, muscle_group, secondary_muscles, equipment, media_url, media_type
+      // pg no parsea arrays de enums propios (muscle_group[]): llegan como "{a,b}". El ::text[] los vuelve array.
+      `select id, name, description, muscle_group, secondary_muscles::text[] as secondary_muscles, equipment, media_url, media_type
        from public.exercises
        where ${where.join(" and ")}
        order by name, id
@@ -48,7 +49,7 @@ export class ExercisesService {
 
   async byId(id: string): Promise<Exercise> {
     const [row] = await this.db.query<Exercise>(
-      `select id, name, description, muscle_group, secondary_muscles, equipment, media_url, media_type
+      `select id, name, description, muscle_group, secondary_muscles::text[] as secondary_muscles, equipment, media_url, media_type
        from public.exercises where id = $1 and is_active`,
       [id],
     );
@@ -60,7 +61,7 @@ export class ExercisesService {
     const [row] = await this.db.query<Exercise>(
       `insert into public.exercises (name, description, muscle_group, secondary_muscles, equipment, media_url, media_type)
        values ($1, $2, $3, $4, $5, $6, $7)
-       returning id, name, description, muscle_group, secondary_muscles, equipment, media_url, media_type`,
+       returning id, name, description, muscle_group, secondary_muscles::text[] as secondary_muscles, equipment, media_url, media_type`,
       [
         input.name,
         input.description ?? null,

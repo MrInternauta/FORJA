@@ -35,8 +35,8 @@ export function AnilloForja({ value, max, size = 168, ignited = false, children,
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="var(--color-oro)" />
-            <stop offset="100%" stopColor="var(--color-brasa)" />
+            <stop offset="0%" stopColor="var(--ignicion-desde)" />
+            <stop offset="100%" stopColor="var(--ignicion-hasta)" />
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />

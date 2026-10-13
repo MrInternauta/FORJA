@@ -10,6 +10,7 @@ import { useMe } from "@/components/auth/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NuevoEjercicioForm } from "@/components/catalogo/nuevo-ejercicio-form";
+import { Dialogo } from "@/components/ui/dialogo";
 
 interface ListResponse {
   items: Exercise[];
@@ -90,7 +91,7 @@ export default function EjerciciosPage() {
       </header>
 
       {/* Buscador */}
-      <label className="superficie flex min-h-11 items-center gap-2 px-3">
+      <label className="superficie flex min-h-11 items-center gap-2 px-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]">
         <Search size={16} strokeWidth={1.75} className="text-[var(--fg-muted)]" aria-hidden />
         <input
           value={q}
@@ -116,9 +117,10 @@ export default function EjerciciosPage() {
               type="button"
               aria-pressed={active}
               onClick={() => setMuscle(active ? null : m)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)] ${
+              className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-sm transition-colors duration-[var(--duration-fast)] ${
                 active
-                  ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
+                  ? // Texto en --fg: el oro sobre su tinte da 4.2:1 en claro; el borde oro marca la seleccion
+                    "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--fg)]"
                   : "border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)]"
               }`}
             >
@@ -168,12 +170,10 @@ export default function EjerciciosPage() {
 
       {/* Detalle en sheet */}
       {detail && (
-        <div
+        <Dialogo
+          label={detail.name}
+          onClose={() => setDetail(null)}
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label={detail.name}
-          onClick={() => setDetail(null)}
         >
           <div
             className="vidrio w-full max-w-lg rounded-t-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6 lg:rounded-[var(--radius-card)]"
@@ -191,7 +191,7 @@ export default function EjerciciosPage() {
                 type="button"
                 onClick={() => setDetail(null)}
                 aria-label="Cerrar"
-                className="superficie flex h-9 w-9 shrink-0 items-center justify-center"
+                className="superficie flex h-11 w-11 shrink-0 items-center justify-center"
               >
                 <X size={16} strokeWidth={1.75} className="text-[var(--fg-muted)]" />
               </button>
@@ -211,7 +211,7 @@ export default function EjerciciosPage() {
               </p>
             )}
           </div>
-        </div>
+        </Dialogo>
       )}
 
       {showForm && (

@@ -126,8 +126,8 @@ export default function PerfilPage() {
         </h2>
         <Card className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-[var(--fg)]">Perfil público</p>
-            <p className="text-xs text-[var(--fg-muted)]">
+            <p id="perfil-publico-label" className="text-sm font-medium text-[var(--fg)]">Perfil público</p>
+            <p id="perfil-publico-desc" className="text-xs text-[var(--fg-muted)]">
               Otros podrán ver tu perfil y lo que publiques. Nada se publica solo.
             </p>
           </div>
@@ -135,8 +135,10 @@ export default function PerfilPage() {
             type="button"
             role="switch"
             aria-checked={publico}
+            aria-labelledby="perfil-publico-label"
+            aria-describedby="perfil-publico-desc"
             onClick={togglePublico}
-            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-[var(--duration-fast)] ${
+            className={`relative h-7 w-12 shrink-0 rounded-full border after:absolute after:-inset-2 after:content-[''] transition-colors duration-[var(--duration-fast)] ${
               publico ? "border-[var(--accent)] bg-[var(--accent)]" : "border-[var(--border)] bg-[var(--bg)]"
             }`}
           >

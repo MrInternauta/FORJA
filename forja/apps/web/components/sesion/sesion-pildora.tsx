@@ -66,7 +66,7 @@ export function SesionPildora() {
         type="button"
         onClick={() => void discardLocalWorkout(active.id).then(() => setActive(null))}
         aria-label="Descartar entrenamiento"
-        className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--fg-muted)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-alerta)]"
+        className="flex h-11 w-11 shrink-0 items-center justify-center text-[var(--fg-muted)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--danger)]"
       >
         <X size={14} strokeWidth={2} />
       </button>

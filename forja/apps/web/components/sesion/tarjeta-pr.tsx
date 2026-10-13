@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Flame, Share2 } from "lucide-react";
+import { Dialogo } from "@/components/ui/dialogo";
 
 interface Props {
   exerciseName: string;
@@ -32,29 +33,27 @@ export function TarjetaPR({ exerciseName, weightKg, reps, onClose }: Props) {
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Nuevo récord personal"
+    <Dialogo
+      label="Nuevo récord personal"
+      onClose={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`superficie relative flex w-full max-w-sm flex-col items-center gap-3 overflow-hidden border-[var(--color-oro)] p-8 text-center ${
+        className={`superficie relative flex w-full max-w-sm flex-col items-center gap-3 overflow-hidden border-[var(--accent)] p-8 text-center ${
           reducedMotion ? "" : "animar-ignicion"
         }`}
       >
         {!reducedMotion && <Chispas />}
-        <span className="texto-display text-sm tracking-widest text-[var(--color-oro)]">
+        <span className="texto-display text-sm tracking-widest text-[var(--accent)]">
           RÉCORD PERSONAL
         </span>
-        <Flame size={40} strokeWidth={1.5} className="text-[var(--color-brasa)]" aria-hidden />
+        <Flame size={40} strokeWidth={1.5} className="text-[var(--ignicion-hasta)]" aria-hidden />
         <p className="texto-display text-lg text-[var(--fg)]">{exerciseName}</p>
         <p
           className="texto-dato text-5xl font-bold"
           style={{
-            backgroundImage: "linear-gradient(135deg, var(--color-oro), var(--color-brasa))",
+            backgroundImage: "linear-gradient(135deg, var(--ignicion-desde), var(--ignicion-hasta))",
             WebkitBackgroundClip: "text",
             backgroundClip: "text",
             color: "transparent",
@@ -83,7 +82,7 @@ export function TarjetaPR({ exerciseName, weightKg, reps, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </Dialogo>
   );
 }
 
