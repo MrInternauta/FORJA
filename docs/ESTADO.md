@@ -1,6 +1,6 @@
 # ESTADO.md — Bitácora del proyecto
 
-Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-10-12.
+Registro de lo construido en las sesiones de planeación y generación, con las verificaciones ejecutadas. Fuente de verdad para retomar el trabajo. Última actualización: 2026-10-13.
 
 ## Decisiones de contexto confirmadas
 
@@ -179,13 +179,53 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       resumen; abrir y cerrar el detalle de un ejercicio (¿el rotor sale del diálogo? Chrome no poda el fondo con
       `aria-modal`; si VoiceOver lo lee, añadir `inert` al resto); recorrer gráfica y heatmap con flechas.
 
+## Cierre de Fase 1 — batería E2E (2026-10-13)
+
+Suites versionadas en `forja/e2e/` (paquete `@forja/e2e`, fuera de CI porque necesitan Postgres y Chrome):
+
+```bash
+supabase start                                   # Postgres + Auth reales
+pnpm build                                       # el SW solo existe en build de producción
+node apps/api/dist/main.js & pnpm --filter @forja/web start &   # con .env exportado
+pnpm e2e                                         # = e2e:api && e2e:web
+```
+
+Cada corrida crea usuarios `e2e-*@forja.test` nuevos (no choca con datos previos). Las claves de Supabase se leen
+de `supabase status` o de `SUPA_ANON`/`SUPA_SERVICE`; Chrome de `CHROME_PATH`.
+
+| Suite | Qué cubre | Resultado |
+|---|---|---|
+| `e2e/api.mjs` | Auth/JWT con `user_role`, onboarding, catálogo, rutinas y límite FREE, logger por sync (series a mitad de sesión, finalizar, PRs, medallas, racha), reenvío idéntico, LWW, lote con ítem roto, sesión abandonada, borrado, corrección de PRs, analytics, vitrina y aislamiento entre usuarios | **85/85** |
+| `e2e/web.mjs` | Navegador real contra build de producción con SW: sesión desde rutina con los botones del logger, resumen y tarjetas de PR, outbox local-first; corte de red a mitad, recarga dura offline, finalizar offline, Hoy offline, reconexión y sync automático | **29/29** + 1 conocido |
+
+Corregido en este cierre (cada fix con su prueba; las suites fallan con el código anterior):
+
+- **Recarga offline a mitad de sesión = pantalla en blanco.** La URL conserva `?routine=` toda la sesión; al
+  recargar, el logger redirigía a `?resume=` con `router.replace`, que pide el payload RSC al servidor. Ahora
+  `pickLocalSession` (`lib/offline/db.ts`) reanuda en su sitio y solo reescribe la URL con `history.replaceState`.
+- **`total_volume_kg` sumaba sesiones sin terminar** (alimenta las medallas de volumen; una sesión abandonada
+  contaba para siempre). Ahora solo sesiones terminadas, como PRs y analytics.
+- **Borrar o corregir la sesión que tenía el PR no lo bajaba.** `detectPrs` recalcula desde los datos cada
+  ejercicio afectado (incluidos los que una edición quita y los de sesiones borradas): sube y se celebra, baja en
+  silencio con la fecha de la sesión que ahora lo sostiene, o desaparece si no quedan series.
+- **Copy de `BarraSync`**: "1 sesión guardadas aquí" / "1 sesión pendientes de subir" (concordancia).
+
+Conocido, sin corregir (decisión de diseño pendiente): ver "Recompensas perdidas si se pierde la respuesta del
+sync" en la deuda técnica.
+
 ## Después (en orden)
 
-1. Cierre de Fase 1: repetir la batería E2E contra Postgres real incluyendo el logger completo
-   (sesión desde rutina → serie → finalizar → sync → recompensas) y el flujo offline extremo a extremo.
+1. Decidir cómo persistir recompensas no vistas (deuda abajo) y la pasada manual con VoiceOver/TalkBack.
 2. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
 
 ## Deuda técnica registrada
+
+- **Recompensas perdidas si se pierde la respuesta del sync.** Las recompensas solo viajan en la respuesta del
+  POST que APLICA la sesión. Si esa respuesta no llega (navegación o recarga en el momento de reconectar, red que
+  cae a mitad de la petición, app cerrada), el reintento responde `skipped_stale` sin recompensas y la celebración
+  se pierde aunque el PR sí quede guardado. Reproducido en `e2e/web.mjs` (marcado como conocido). Además el bus de
+  `sync-state.ts` es en memoria: sin suscriptor en ese instante, se descarta. Arreglo propuesto: el servidor guarda
+  las recompensas no vistas y el cliente las pide y confirma al arrancar.
 
 - `next/font` en lugar de `<link>` a Google Fonts (flash tipográfico; ~850 ms de render bloqueado, Lighthouse
   escritorio de `/login` en 85).

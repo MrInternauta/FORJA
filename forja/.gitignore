@@ -12,3 +12,6 @@ supabase/.temp/
 
 # Reporte local de ESLint (lo genera el workflow en CI)
 eslint-results.sarif
+
+# Capturas de los E2E de navegador
+e2e/shots/

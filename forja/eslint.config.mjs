@@ -62,6 +62,25 @@ export default tseslint.config(
     },
   },
 
+  // E2E: scripts de Node que ademas mandan callbacks al navegador (page.evaluate).
+  {
+    files: ["e2e/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        Buffer: "readonly",
+        fetch: "readonly",
+        setTimeout: "readonly",
+        document: "readonly",
+        location: "readonly",
+        navigator: "readonly",
+        indexedDB: "readonly",
+      },
+    },
+  },
+
   // Convencion del repo: los `_` marcan argumentos deliberadamente sin usar.
   {
     rules: {
