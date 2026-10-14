@@ -168,7 +168,8 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       retorno). De paso: bug de `secondary_muscles` (llegaba como texto y rompía el detalle de ejercicio).
       **Lighthouse 12 sobre build de producción (2026-10-12)**, sesión iniciada con datos reales, 8 rutas × 2 temas:
       accesibilidad, buenas prácticas y SEO **100** en todas (móvil y escritorio); rendimiento móvil 99–100.
-      Escritorio: `/login` 85 (Google Fonts bloquea el render ~850 ms en frío → deuda `next/font`) y `/progreso` 93
+      Escritorio: `/login` 85 (Google Fonts bloquea el render ~850 ms en frío → **migrado a `next/font` el 2026-10-13**:
+      re-medido 3× en la misma máquina, FCP 0.5–0.6 s → 0.2 s, ya sin petición a Google; 100 en las 4 categorías) y `/progreso` 93
       (CLS 0.116: la tarjeta del heatmap cambia de alto al llegar los datos).
       Árbol de accesibilidad de Chrome revisado (lo que leen los lectores de pantalla): tablas `sr-only` con
       encabezados de fila/columna, `dialog` con nombre, landmarks `main`/`navigation`. Corregido: el chip de racha

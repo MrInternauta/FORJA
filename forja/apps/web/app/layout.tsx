@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
+
+// Autohospedadas por next/font (se descargan en build): sin peticiones a Google en
+// runtime ni CSS bloqueante, y con fallback ajustado para no mover el layout.
+const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], display: "swap", variable: "--font-archivo" });
+const instrumentSans = Instrument_Sans({ subsets: ["latin"], display: "swap", variable: "--font-instrument" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], display: "swap", variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
   title: { default: "FORJA", template: "%s · FORJA" },
@@ -24,16 +31,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        {/* Fuentes en runtime (sin fetch en build). TODO(perf): migrar a next/font. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400..700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="es"
+      className={`${archivo.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} value={{ dark: "dark", light: "light" }}>
           {children}
