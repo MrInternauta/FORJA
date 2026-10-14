@@ -77,7 +77,6 @@ medallas. Accesibilidad: 0 violaciones axe y Lighthouse 100 en a11y. Batería E2
 de CI: necesita Postgres y Chrome): API 101/101, navegador offline 34/34. Lo que falta para cerrar Fase 1:
 
 - Pasada MANUAL con VoiceOver (iOS Safari) y TalkBack (Android Chrome); el guion está en ESTADO.md.
-- CLS de `/progreso` en escritorio (0.116): la tarjeta del heatmap cambia de alto al llegar los datos.
 - Deudas conocidas: sin log de eventos de PR (`prs_25` no medible), sin histórico de `weekly_goal`, sin push.
 
 Las fuentes se cargan con `next/font/google` en `app/layout.tsx` (autohospedadas, se descargan en BUILD: el build

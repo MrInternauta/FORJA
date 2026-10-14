@@ -82,12 +82,28 @@ export function ResumenSemanal({ className = "" }: { className?: string }) {
         </div>
       </div>
 
+      {/* Misma geometria que el estado listo (anillo + copy de 2 lineas + fila de datos):
+          la tarjeta abarca las dos columnas y todo /progreso cuelga de su alto (CLS). */}
       {estado.fase === "cargando" && (
-        <div aria-busy="true" aria-label="Cargando resumen semanal" className="flex items-center gap-5">
-          <div className="h-[120px] w-[120px] shrink-0 animate-pulse rounded-full bg-[var(--border)]" />
-          <div className="flex flex-1 flex-col gap-2">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-[var(--border)]" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--border)]" />
+        <div
+          aria-busy="true"
+          aria-label="Cargando resumen semanal"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6"
+        >
+          <div className="flex items-center gap-4 sm:flex-col sm:items-center sm:gap-2">
+            <div className="h-[120px] w-[120px] shrink-0 animate-pulse rounded-full bg-[var(--border)]" />
+            <div className="flex w-40 flex-col gap-2 py-1 sm:items-center">
+              <div className="h-3 w-full animate-pulse rounded bg-[var(--border)]" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-[var(--border)]" />
+            </div>
+          </div>
+          <div className="flex flex-1 flex-wrap gap-x-6 gap-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <div className="h-3 w-14 animate-pulse rounded bg-[var(--border)]" />
+                <div className="h-6 w-20 animate-pulse rounded bg-[var(--border)]" />
+              </div>
+            ))}
           </div>
         </div>
       )}
