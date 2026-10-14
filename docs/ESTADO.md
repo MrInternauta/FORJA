@@ -170,7 +170,11 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       accesibilidad, buenas prácticas y SEO **100** en todas (móvil y escritorio); rendimiento móvil 99–100.
       Escritorio: `/login` 85 (Google Fonts bloquea el render ~850 ms en frío → **migrado a `next/font` el 2026-10-13**:
       re-medido 3× en la misma máquina, FCP 0.5–0.6 s → 0.2 s, ya sin petición a Google; 100 en las 4 categorías) y `/progreso` 93
-      (CLS 0.116: la tarjeta del heatmap cambia de alto al llegar los datos).
+      (CLS 0.116). **Corregido el 2026-10-14**: medido por elemento, el salto no era el alto del heatmap sino el
+      resumen semanal (abarca las dos columnas y su esqueleto medía 120 px contra ~170+ del estado listo), que
+      empujaba todo `/progreso` hacia abajo. Los esqueletos del resumen y del heatmap copian ahora la geometría
+      del estado listo. Con la API retrasada 800 ms (Chrome headless, 1350×940): con datos 0.134 → 0.021 (el
+      resto son las listas de PRs/medallas de la semana, de alto variable), sin datos 0.063 → 0; móvil 0.
       Árbol de accesibilidad de Chrome revisado (lo que leen los lectores de pantalla): tablas `sr-only` con
       encabezados de fila/columna, `dialog` con nombre, landmarks `main`/`navigation`. Corregido: el chip de racha
       solo anunciaba "1" (ahora "Racha de 1 semana") y en `/entrenar` vacío "Entrenamiento libre" era un botón
@@ -239,9 +243,6 @@ terminada ONLINE nunca se celebraban (el resumen de `/sesion` solo muestra PRs y
 
 ## Deuda técnica registrada
 
-- `next/font` en lugar de `<link>` a Google Fonts (flash tipográfico; ~850 ms de render bloqueado, Lighthouse
-  escritorio de `/login` en 85).
-- CLS 0.116 en `/progreso` (escritorio): el esqueleto del heatmap no reserva el alto final.
 - Drag & drop con handle en el builder (hoy flechas).
 - `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
 - `skipped_stale` en cliente: traer copia del servidor y reemplazar la local (TODO en `lib/offline/sync.ts`).
