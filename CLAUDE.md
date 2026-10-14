@@ -71,4 +71,14 @@ El sync es la parte con más aristas del producto; lo que ya está resuelto no s
 
 ## Estado actual y siguiente tarea
 
-Ver `docs/ESTADO.md`. Resumen: Fase 0 + semanas 3–11 de Fase 1 hechas (3–6 verificadas E2E contra Postgres real; 7–11 verificadas con typecheck, build y tests). **La siguiente tarea es Progreso real (semanas 12–13)**: `/progreso` sigue siendo un placeholder y el backend solo expone `GET /analytics/volume` — faltan `distribution`, `prs` y `exercise/:id/history`, la gráfica de volumen, el heatmap muscular, la vitrina de medallas desde `user_achievements`, el resumen semanal y el pase de accesibilidad completo.
+Ver `docs/ESTADO.md`. Resumen: Fase 0 + Fase 1 completas (semanas 3–13). Progreso real (semanas 12–13) ya está hecho:
+`/progreso` muestra resumen semanal, gráfica de volumen, heatmap muscular, barras por máquina, récords y vitrina de
+medallas. Accesibilidad: 0 violaciones axe y Lighthouse 100 en a11y. Batería E2E de cierre en `forja/e2e/` (fuera
+de CI: necesita Postgres y Chrome): API 101/101, navegador offline 34/34. Lo que falta para cerrar Fase 1:
+
+- Pasada MANUAL con VoiceOver (iOS Safari) y TalkBack (Android Chrome); el guion está en ESTADO.md.
+- CLS de `/progreso` en escritorio (0.116): la tarjeta del heatmap cambia de alto al llegar los datos.
+- Deudas conocidas: sin log de eventos de PR (`prs_25` no medible), sin histórico de `weekly_goal`, sin push.
+
+Las fuentes se cargan con `next/font/google` en `app/layout.tsx` (autohospedadas, se descargan en BUILD: el build
+necesita red). `globals.css` solo referencia las variables `--font-archivo/-instrument/-jetbrains`.

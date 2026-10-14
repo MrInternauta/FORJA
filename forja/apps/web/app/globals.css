@@ -17,10 +17,10 @@
   --color-senal: #41b883;
   --color-alerta: #e0564b;
 
-  /* Tipografia (cargada via <link> en layout; fallbacks de sistema) */
-  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Tipografia: next/font define --font-archivo/-instrument/-jetbrains en <html> (layout) */
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
   --radius-card: 1rem;
   --radius-control: 0.625rem;
