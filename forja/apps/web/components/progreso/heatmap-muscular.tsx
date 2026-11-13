@@ -59,6 +59,7 @@ const EN_CUERPO: MuscleGroup[] = [
 ];
 /** Sin region en la figura: van como chips debajo. */
 const FUERA_DEL_CUERPO: MuscleGroup[] = ["full_body", "cardio"];
+const NOTA = "Cada serie cuenta para el grupo principal del ejercicio.";
 
 function fillFor(step: number): string {
   return step === 0 ? "var(--bg)" : `var(--heat-${step})`;
@@ -87,7 +88,8 @@ function Figura({
   regiones: [MuscleGroup, Forma[]][];
   stepOf: (g: MuscleGroup) => number;
   activa: MuscleGroup | null;
-  onSelect: (g: MuscleGroup) => void;
+  /** Sin handler la figura es inerte (esqueleto de carga). */
+  onSelect?: (g: MuscleGroup) => void;
 }) {
   return (
     <figure className="flex flex-col items-center gap-1">
@@ -111,9 +113,9 @@ function Figura({
                     : "none"
               }
               strokeWidth={seleccionada ? 1.75 : 1}
-              className="cursor-pointer transition-[fill] duration-[var(--duration-base)]"
-              onPointerEnter={() => onSelect(grupo)}
-              onPointerDown={() => onSelect(grupo)}
+              className={onSelect ? "cursor-pointer transition-[fill] duration-[var(--duration-base)]" : undefined}
+              onPointerEnter={onSelect && (() => onSelect(grupo))}
+              onPointerDown={onSelect && (() => onSelect(grupo))}
             />
           ));
         })}
@@ -193,11 +195,22 @@ export function HeatmapMuscular({ weeks }: { weeks: RangoSemanas }) {
         </p>
       </div>
 
+      {/* Esqueleto con la geometria del estado listo (figuras, chips, detalle, leyenda y
+          nota): el alto no cambia al llegar los datos (CLS). */}
       {estado.fase === "cargando" && (
-        <div aria-busy="true" aria-label="Cargando grupos musculares" className="flex justify-center gap-6 py-2">
-          {[0, 1].map((i) => (
-            <div key={i} className="h-[180px] w-[110px] animate-pulse rounded-[var(--radius-control)] bg-[var(--border)]" />
-          ))}
+        <div aria-busy="true" aria-label="Cargando grupos musculares" className="animate-pulse">
+          <div className="grid grid-cols-2 gap-2">
+            <Figura vista="frente" regiones={FRENTE} stepOf={() => 0} activa={null} />
+            <Figura vista="espalda" regiones={ESPALDA} stepOf={() => 0} activa={null} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-11 w-28 rounded-[var(--radius-control)] bg-[var(--border)]" />
+            ))}
+          </div>
+          <div className="mt-3 h-5 w-48 rounded bg-[var(--border)]" />
+          <div className="mt-3 h-4 w-56 rounded bg-[var(--border)]" />
+          <p className="mt-2 text-xs text-[var(--fg-muted)]">{NOTA}</p>
         </div>
       )}
 
@@ -279,7 +292,7 @@ export function HeatmapMuscular({ weeks }: { weeks: RangoSemanas }) {
               ))}
             </div>
           )}
-          <p className="mt-2 text-xs text-[var(--fg-muted)]">Cada serie cuenta para el grupo principal del ejercicio.</p>
+          <p className="mt-2 text-xs text-[var(--fg-muted)]">{NOTA}</p>
 
           {/* sr-only en un div, no en la tabla: una <table> ignora width:1px, crece a su
               contenido y provoca scroll horizontal en moviles */}
