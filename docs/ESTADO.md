@@ -200,7 +200,7 @@ de `supabase status` o de `SUPA_ANON`/`SUPA_SERVICE`; Chrome de `CHROME_PATH`.
 
 | Suite | Qué cubre | Resultado |
 |---|---|---|
-| `e2e/api.mjs` | Recompensas pendientes, auth/JWT con `user_role`, onboarding, catálogo, rutinas y límite FREE, logger por sync (series a mitad de sesión, finalizar, PRs, medallas, racha), reenvío idéntico, LWW, lote con ítem roto, sesión abandonada, borrado, corrección de PRs, analytics, vitrina y aislamiento entre usuarios | **101/101** |
+| `e2e/api.mjs` | Recompensas pendientes, borrado de cuenta, auth/JWT con `user_role`, onboarding, catálogo, rutinas y límite FREE, logger por sync (series a mitad de sesión, finalizar, PRs, medallas, racha), reenvío idéntico, LWW, lote con ítem roto, sesión abandonada, borrado, corrección de PRs, analytics, vitrina y aislamiento entre usuarios | **101/101** |
 | `e2e/web.mjs` | Navegador real contra build de producción con SW: sesión desde rutina con los botones del logger, resumen y tarjetas de PR, outbox local-first; corte de red a mitad, recarga dura offline, finalizar offline, Hoy offline, reconexión y sync automático | **34/34** |
 
 Corregido en este cierre (cada fix con su prueba; las suites fallan con el código anterior):
@@ -253,6 +253,26 @@ siguiente. Ahora se cortan en el lunes 00:00 de la zona del usuario.
 - Pruebas: E2E de API con usuarios CDMX y UTC (volumen, resumen, distribución, racha, trigger por RLS);
   vitest de `weekKey`/`fillWeeks` con zona.
 
+### Borrado de cuenta completo: `DELETE /me` borra también `auth.users` (2026-11-27)
+
+Antes `DELETE /me` borraba el perfil pero el usuario seguía en `auth.users`: podía volver a iniciar sesión (y caía
+en el onboarding como cuenta nueva).
+
+- `SupabaseAdminService` (`apps/api/src/auth/supabase-admin.service.ts`): `DELETE /auth/v1/admin/users/:id` con la
+  nueva variable **opcional** `SUPABASE_SERVICE_ROLE_KEY` (documentada en `.env.example`; acepta la clave legacy JWT
+  y la nueva `sb_secret_…`). 404 cuenta como ya borrado (idempotente).
+- Orden: primero `auth.users` (su cascada se lleva el perfil y los datos); si la Admin API falla → 502 legible y no se
+  borra nada, para poder reintentar. Sin la clave se conserva el comportamiento anterior (solo el perfil) y la API
+  deja un `WARN` en el log.
+- El JWT ya emitido sigue siendo válido hasta que expira (la API no consulta `auth.users` por request), pero sin perfil
+  todo responde 404 y ya no hay refresh ni login.
+- Pruebas: jest 16/16 (`supabase-admin.service.spec.ts`, `me.controller.spec.ts`: orden, sin clave, fallo sin borrar
+  nada). **E2E API 123/123** con la clave (nueva sección "Borrado de cuenta"), navegador **36/36**; con la API sin
+  el cambio falla 2 checks
+  (vuelve a iniciar sesión, sigue en `auth.users`). Sin la clave: 204, `WARN` y el login sigue funcionando.
+- El E2E necesita `SUPABASE_SERVICE_ROLE_KEY` en el `.env` de la API (local: `SERVICE_ROLE_KEY` de `supabase status`).
+- **Producción:** definir `SUPABASE_SERVICE_ROLE_KEY` en el proyecto `api` de Vercel (secreta, nunca `NEXT_PUBLIC_`).
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -267,7 +287,6 @@ siguiente. Ahora se cortan en el lunes 00:00 de la zona del usuario.
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
-- Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.
 - La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
   Dexie); aparecen al sincronizar.
