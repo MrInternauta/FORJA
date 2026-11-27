@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ajustar, restante } from "@/lib/sesion/descanso";
+import {
+  avisoDescansoSinSw,
+  cancelarAvisoDescanso,
+  programarAvisoDescanso,
+} from "@/lib/sesion/descanso-notificacion";
 
 interface Props {
   /** Duracion inicial en segundos; cambia `resetKey` para reiniciar la cuenta. */
@@ -16,39 +22,62 @@ function fmt(totalSeconds: number): string {
 }
 
 /**
- * `TimerDescanso` (plan §6.2/§7): cuenta regresiva display XXL. Un tap revela
- * ajustes rapidos (±15s); al llegar a 0 pulsa el display y dispara una
- * notificacion local — la recompensa de color se conserva con reduced-motion.
+ * `TimerDescanso` (plan §6.2/§7): cuenta regresiva display XXL contra una hora
+ * limite — el tiempo sigue siendo correcto con la pestana oculta o throttled.
+ * Un tap revela ajustes rapidos (±15s); al llegar a 0 pulsa el display y el
+ * aviso lo emite el Service Worker (o la pagina si no hay SW). La recompensa
+ * de color se conserva con reduced-motion.
  */
 export function TimerDescanso({ initialSeconds, resetKey, onDone }: Props) {
-  const [seconds, setSeconds] = useState(initialSeconds);
+  const [endsAt, setEndsAt] = useState(() => Date.now() + initialSeconds * 1000);
+  const [now, setNow] = useState(() => Date.now());
   const [expanded, setExpanded] = useState(false);
   const [pulsing, setPulsing] = useState(false);
+  // La celebracion (vibrar, pulso, onDone) se dispara una sola vez por deadline.
+  const firedFor = useRef<number | null>(null);
+  const seconds = restante(endsAt, now);
 
   useEffect(() => {
-    setSeconds(initialSeconds);
+    setEndsAt(Date.now() + initialSeconds * 1000);
+    setNow(Date.now());
   }, [resetKey, initialSeconds]);
+
+  // La pagina solo programa la hora; el SW decide si notificar al vencer.
+  useEffect(() => {
+    if (endsAt > Date.now()) programarAvisoDescanso(endsAt);
+    else cancelarAvisoDescanso();
+    return cancelarAvisoDescanso;
+  }, [endsAt]);
 
   useEffect(() => {
     if (seconds <= 0) return;
-    const id = setTimeout(() => setSeconds((s) => Math.max(0, s - 1)), 1000);
-    return () => clearTimeout(id);
-  }, [seconds]);
+    const id = setInterval(() => setNow(Date.now()), 250);
+    const onVisibility = () => setNow(Date.now());
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endsAt, seconds > 0]);
 
   useEffect(() => {
-    if (seconds !== 0) return;
+    if (seconds !== 0 || firedFor.current === endsAt) return;
+    firedFor.current = endsAt;
     navigator.vibrate?.(200);
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("Descanso terminado", { body: "Es hora de la siguiente serie.", tag: "forja-descanso" });
-    }
+    if (!navigator.serviceWorker?.controller) void avisoDescansoSinSw();
     setPulsing(true);
     const t = setTimeout(() => setPulsing(false), 1200);
     onDone?.();
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seconds === 0]);
+  }, [seconds === 0, endsAt]);
 
-  const adjust = (delta: number) => setSeconds((s) => Math.max(0, s + delta));
+  const adjust = (delta: number) => setEndsAt((e) => ajustar(e, Date.now(), delta));
+  const skip = () => {
+    cancelarAvisoDescanso();
+    setEndsAt(Date.now());
+  };
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -74,7 +103,7 @@ export function TimerDescanso({ initialSeconds, resetKey, onDone }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => setSeconds(0)}
+            onClick={skip}
             className="superficie flex h-14 min-w-14 items-center justify-center rounded-full px-4 text-sm text-[var(--fg-muted)]"
           >
             Saltar

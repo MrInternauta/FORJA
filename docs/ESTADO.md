@@ -355,6 +355,23 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
   la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
 
+### Timer de descanso con hora límite y aviso desde el Service Worker (2026-11-27)
+
+- `TimerDescanso` cuenta contra una hora límite (`endsAt`) en vez de restar 1 cada segundo: con la pestaña oculta o
+  ralentizada el tiempo sigue siendo exacto, y al volver después del final celebra una sola vez. Helpers puros
+  `restante`/`ajustar` en `lib/sesion/descanso.ts`.
+- El SW es el único que notifica: la página le manda la hora límite (`forja-descanso`) y la cancela al saltar o
+  desmontar; el SW espera dentro de `waitUntil` y muestra "Descanso terminado" solo si no hay una ventana visible y
+  enfocada. El tap enfoca `/sesion` (o la abre). Lógica inyectable y probada en `lib/offline/descanso-sw.ts`.
+- Corregido: `new Notification(...)` lanza "Illegal constructor" en Android Chrome; ahora se usa
+  `registration.showNotification` (el constructor queda como último recurso sin SW).
+- Límites conocidos: Chrome corta los eventos del SW a ~5 min (un descanso más largo puede no avisar en segundo
+  plano) y iOS suspende el SW con la PWA en segundo plano (allí el aviso llega al volver). Lo único fiable en iOS es
+  Web Push desde el servidor (librería `web-push`, MIT, con VAPID propio): queda para cuando haya infraestructura
+  de push.
+- Pruebas: vitest +12 (`descanso.test.ts` 7, `descanso-sw.test.ts` 5). Chrome real: con la página cerrada, el SW
+  muestra el aviso a los 3 s; programado y cancelado, ninguno.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -365,7 +382,6 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 
 - Drag & drop con handle en el builder (hoy flechas).
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
-- Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
   `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.
