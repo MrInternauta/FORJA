@@ -9,10 +9,7 @@ export type AchievementMetric = (typeof ACHIEVEMENT_METRICS)[number];
 export interface AchievementRule {
   metric: AchievementMetric;
   target: number;
-  /**
-   * false = aun no medible: `prs_25` necesita un log de eventos de PR (hoy solo
-   * existe el PR vigente por ejercicio). Ni se otorga ni muestra progreso.
-   */
+  /** false = aun no medible: ni se otorga ni muestra progreso. */
   measurable?: false;
 }
 
@@ -32,7 +29,8 @@ export const ACHIEVEMENT_RULES: Record<string, AchievementRule> = {
   racha_26: { metric: "streak_weeks", target: 26 },
   racha_52: { metric: "streak_weeks", target: 52 },
   primer_pr: { metric: "prs", target: 1 },
-  prs_25: { metric: "prs", target: 25, measurable: false }, // TODO('prs_25'): log de eventos de PR
+  // `prs` = PRs rotos en la historia (log `pr_events`), no solo los vigentes.
+  prs_25: { metric: "prs", target: 25 },
 };
 
 export type AchievementMetricValues = Record<AchievementMetric, number>;

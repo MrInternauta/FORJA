@@ -12,7 +12,7 @@ Registro de lo construido en las sesiones de planeación y generación, con las 
 | Región | LATAM (es-MX), sin requisitos regulatorios especiales; unidades en kg |
 | Pagos (Fase 3) | Stripe recomendado; aislado en futuro `BillingModule` (pregunta abierta #1 sin cerrar) |
 | Hosting backend | Contenedores gestionados (Fly.io/Railway) recomendado (pregunta abierta #3 sin cerrar) |
-| Racha | **Semanal** contra objetivo configurable 1–7 (no diaria); semanas de gracia ganadas (TODO v2) |
+| Racha | **Semanal** contra objetivo configurable 1–7 (no diaria); 1 semana de gracia ganada cada 4 cumplidas |
 
 ## Preguntas abiertas AÚN sin respuesta del founder
 
@@ -144,8 +144,8 @@ mutex de flushes concurrentes y cortocircuito sin conexión.
       `/progreso` con `AnilloForja` (igniciona solo si se cumplió el objetivo), copy sin culpa (semana corta = "Cada
       una suma"; 0 = "El descanso también es parte del entrenamiento"), flechas para semanas anteriores. El selector
       de rango bajó a una fila "Tendencias" encima de lo que sí acota. E2E 47/47.
-      Limitaciones: `weekly_goal` es el ACTUAL (no hay histórico del objetivo); PRs superados después no aparecen en
-      su semana (falta log de eventos de PR); la racha solo se muestra en la semana más reciente. Sin notificación
+      Limitaciones: `weekly_goal` es el ACTUAL (no hay histórico del objetivo); ~~PRs superados después no aparecen en
+      su semana~~ (resuelto con el log `pr_events`, 2026-11-27); la racha solo se muestra en la semana más reciente. Sin notificación
       push de los lunes: no hay infraestructura de push todavía.
 - [~] Pase de accesibilidad (en curso, 2026-09-21). Hecho y verificado:
       - Contraste AA en tema claro: `--accent` #966418, `--fg-muted` #676d7b; tokens de estado `--positive`/`--danger`/
@@ -327,6 +327,23 @@ una sesión terminada sin red no aparecía hasta sincronizar, aunque Hoy ya la m
   2,780 kg (no se cuenta dos veces).
 
 ||||||| b1aac16
+### Log de eventos de PR, `prs_25` y semanas de gracia (2026-11-27)
+
+Migración `00000000000007_log_prs.sql` (**el dueño la aplica en producción antes de mergear**): tabla `pr_events`
+con RLS (lectura del dueño o perfil público, como `exercise_prs`; escritura solo backend) y backfill del historial.
+
+- Un evento por (sesión terminada, ejercicio) cuya mejor serie superó a todas las anteriores (orden `ended_at`,
+  como `detectPrs`; la primera vez de un ejercicio cuenta, igual que se celebra). Se RECALCULA por ejercicio
+  afectado en cada sync (`rebuildPrEvents`), así que sigue a correcciones y borrados: sin eventos fantasma.
+- `prs_25` medible: la métrica `prs` (otorgar y vitrina) cuenta `pr_events`, no los PRs vigentes.
+- Resumen semanal: los PRs salen del log (el mejor por ejercicio de la semana), así que un PR superado después
+  sigue en su semana. `GET /analytics/prs` sigue mostrando solo los vigentes.
+- Racha con gracia (`computeStreak` en `workouts/streak.ts`, diseño §8): cada 4 semanas cumplidas de la racha
+  +1 gracia (`user_stats.grace_weeks`); una semana pasada sin cumplir consume una y la racha sigue (la puenteada no
+  suma); sin gracia, la racha vuelve a 0. La semana en curso nunca rompe ni consume. Sin tope de gracias acumuladas.
+- Pruebas: jest `streak.spec.ts` (10) y reglas de logros; e2e:api con PR superado en el resumen, progreso y medalla
+  `prs_25` (incluida una corrección que baja el log) y racha con gracia.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -336,7 +353,6 @@ una sesión terminada sin red no aparecía hasta sincronizar, aunque Hoy ya la m
 ## Deuda técnica registrada
 
 - Drag & drop con handle en el builder (hoy flechas).
-- `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.

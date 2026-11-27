@@ -67,7 +67,7 @@ export class MeService {
       `select s.total_workouts as workouts,
               s.total_volume_kg::float8 as volume_kg,
               s.longest_streak as streak_weeks,
-              (select count(*)::int from public.exercise_prs p where p.user_id = s.user_id) as prs
+              (select count(*)::int from public.pr_events p where p.user_id = s.user_id) as prs
        from public.user_stats s where s.user_id = $1`,
       [userId],
     );

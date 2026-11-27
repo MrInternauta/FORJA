@@ -326,6 +326,52 @@ const racha = async (u) => (await call(u.token, "GET", "/me")).body.stats.curren
 check("racha CDMX: la sesión es de antes de la semana pasada local → 0", rachaEsperada(MX) === 0 && (await racha(MXr)) === 0, await racha(MXr));
 check("racha UTC: la misma sesión se cuenta en las semanas UTC", (await racha(UTCr)) === rachaEsperada("UTC"), { racha: await racha(UTCr), esperada: rachaEsperada("UTC") });
 
+section("Log de PRs: resumen semanal con PRs superados y medalla prs_25");
+// Miércoles 12:00 CDMX de la semana `k` semanas atrás (0 = la actual).
+const miercoles = (k) => Date.parse(`${lunes(now - k * 7 * DAY, MX)}T18:00:00Z`) + 2 * DAY;
+const sesionBanca = (k, kg, min = 0) => workout({ started_at: miercoles(k) + min * 60_000, ended_at: miercoles(k) + (min + 30) * 60_000, exercises: [{ exercise_id: BENCH.id, sets: [set(1, kg, 10)] }] });
+const P = await newUser("prlog");
+await onboard(P, `e2e_prlog_${tag}`);
+await call(P.token, "POST", "/sync/workouts", { operations: [upsert(sesionBanca(3, 50)), upsert(sesionBanca(2, 55))] });
+const prsDe = async (u, k) => (await call(u.token, "GET", `/analytics/weekly-summary?week=${lunes(miercoles(k), MX)}`)).body.prs;
+r = await prsDe(P, 3);
+check("weekly-summary conserva el PR de la semana aunque se superó después (banca 50×10)", r.length === 1 && r[0].weight_kg === 50 && r[0].reps === 10, r);
+r = await prsDe(P, 2);
+check("weekly-summary de la semana siguiente: el PR que lo superó (55×10)", r.length === 1 && r[0].weight_kg === 55, r);
+const vitrina = async (u) => Object.fromEntries((await call(u.token, "GET", "/me/achievements")).body.map((a) => [a.id, a]));
+check("vitrina: prs_25 ya muestra progreso (2/25)", (await vitrina(P)).prs_25?.progress?.current === 2, (await vitrina(P)).prs_25);
+// 22 sesiones más, cada una 1 kg arriba: 24 PRs, aún sin medalla.
+const subida = Array.from({ length: 22 }, (_, i) => sesionBanca(1, 56 + i, 40 * i));
+r = await call(P.token, "POST", "/sync/workouts", { operations: subida.map(upsert) });
+check("24 PRs → sin prs_25", !r.body.rewards.new_achievements.includes("prs_25") && (await vitrina(P)).prs_25.progress.current === 24, r.body.rewards);
+// Corregir un peso mal tecleado no deja eventos fantasma: la última baja a 50 y deja de ser PR.
+const ultima = subida[subida.length - 1];
+await call(P.token, "POST", "/sync/workouts", { operations: [upsert({ ...ultima, client_updated_at: tick(), exercises: [{ ...ultima.exercises[0], sets: [set(1, 50, 10)] }] })] });
+check("corrección: el log baja a 23 PRs", (await vitrina(P)).prs_25.progress.current === 23, (await vitrina(P)).prs_25);
+r = await call(P.token, "POST", "/sync/workouts", { operations: [90, 95].map((kg, i) => upsert(workout({ started_at: now - (4 - i) * H, ended_at: now - (3.5 - i) * H, exercises: [{ exercise_id: BENCH.id, sets: [set(1, kg, 10)] }] }))) });
+check("25 PRs → medalla prs_25", r.body.rewards.new_achievements.includes("prs_25"), r.body.rewards);
+r = await call(P.token, "GET", "/analytics/prs");
+check("analytics/prs sigue mostrando solo el vigente (95×10)", r.body.filter((p) => p.exercise_id === BENCH.id).length === 1 && r.body.find((p) => p.exercise_id === BENCH.id).weight_kg === 95, r.body);
+
+section("Racha: semanas de gracia (1 cada 4 cumplidas)");
+const G = await newUser("gracia"), G2 = await newUser("gracia2");
+for (const [u, n] of [[G, "g"], [G2, "g2"]]) {
+  await onboard(u, `e2e_${n}_${tag}`);
+  await call(u.token, "PATCH", "/me", { weekly_goal: 1 });
+}
+const statsDe = async (u) => (await call(u.token, "GET", "/me")).body.stats;
+await call(G2.token, "POST", "/sync/workouts", { operations: [4, 3, 2, 1].map((k) => upsert(sesionBanca(k, 40))) });
+r = await statsDe(G2);
+check("4 semanas cumplidas → racha 4 y 1 semana de gracia", r.current_streak === 4 && r.grace_weeks === 1, r);
+// G: 4 cumplidas (6..3), la 2 sin cumplir, y la pasada sin cumplir todavía.
+await call(G.token, "POST", "/sync/workouts", { operations: [6, 5, 4, 3].map((k) => upsert(sesionBanca(k, 40))) });
+r = await statsDe(G);
+check("dos semanas fallidas con una sola gracia → racha 0", r.current_streak === 0 && r.grace_weeks === 0, r);
+r = await call(G.token, "POST", "/sync/workouts", { operations: [upsert(sesionBanca(1, 40))] });
+const sg = await statsDe(G);
+check("la gracia puentea la semana fallida: racha 5 (4 + 1), gracia usada", sg.current_streak === 5 && sg.grace_weeks === 0 && r.body.rewards.streak_delta === 5, { stats: sg, rewards: r.body.rewards });
+check("medalla racha_4 por la racha más larga", r.body.rewards.new_achievements.includes("racha_4"), r.body.rewards);
+
 section("Borrado de cuenta (requiere SUPABASE_SERVICE_ROLE_KEY en la API)");
 const D = await newUser("d");
 await onboard(D, `e2e_d_${String(now).slice(-8)}`);

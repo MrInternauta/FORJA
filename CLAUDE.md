@@ -77,7 +77,7 @@ medallas. Accesibilidad: 0 violaciones axe y Lighthouse 100 en a11y. Batería E2
 de CI: necesita Postgres y Chrome): API 101/101, navegador offline 34/34. Lo que falta para cerrar Fase 1:
 
 - Pasada MANUAL con VoiceOver (iOS Safari) y TalkBack (Android Chrome); el guion está en ESTADO.md.
-- Deudas conocidas: sin log de eventos de PR (`prs_25` no medible), sin histórico de `weekly_goal`, sin push.
+- Deudas conocidas: sin histórico de `weekly_goal`, sin push.
 
 Las fuentes se cargan con `next/font/google` en `app/layout.tsx` (autohospedadas, se descargan en BUILD: el build
 necesita red). `globals.css` solo referencia las variables `--font-archivo/-instrument/-jetbrains`.

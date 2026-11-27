@@ -11,6 +11,7 @@ import type {
   Workout,
 } from "@forja/shared";
 import { DatabaseService } from "../database/database.service";
+import { computeStreak, STREAK_WINDOW_WEEKS } from "./streak";
 
 /**
  * Sincronizacion offline (arquitectura §6 + plan de diseno §8.3).
@@ -230,6 +231,7 @@ export class WorkoutsService {
   private async computeRewards(userId: string, exerciseIds: string[]): Promise<SyncRewards> {
     return this.db.tx(async (tx) => {
       const newPrs = await this.detectPrs(tx, userId, exerciseIds);
+      await this.rebuildPrEvents(tx, userId, exerciseIds);
       const { streakDelta, stats } = await this.recomputeStats(tx, userId);
       const newAchievements = await this.awardAchievements(tx, userId, stats);
       const rewards = { new_prs: newPrs, new_achievements: newAchievements, streak_delta: streakDelta };
@@ -342,6 +344,47 @@ export class WorkoutsService {
   }
 
   /**
+   * Log de eventos de PR (`pr_events`, migracion 0007): una fila por sesion
+   * terminada cuya mejor serie del ejercicio supero a todas las anteriores
+   * (orden por ended_at, desempate por id, como `detectPrs`). Se recalcula por
+   * ejercicio afectado, asi que sigue a correcciones y borrados. La ultima fila
+   * de cada ejercicio es su `exercise_prs`.
+   */
+  private async rebuildPrEvents(tx: PoolClient, userId: string, exerciseIds: string[]): Promise<void> {
+    if (exerciseIds.length === 0) return;
+    await tx.query("delete from public.pr_events where user_id = $1 and exercise_id = any($2::uuid[])", [
+      userId,
+      exerciseIds,
+    ]);
+    // score ordena como (peso desc, reps desc): reps <= 200 y 0.01 kg * 100000 = 1000 > 200.
+    await tx.query(
+      `insert into public.pr_events (user_id, exercise_id, workout_id, weight_kg, reps, achieved_at)
+       select $1, exercise_id, workout_id, weight_kg, reps, ended_at
+       from (
+         select b.*,
+                max(b.score) over (
+                  partition by b.exercise_id
+                  order by b.ended_at, b.workout_id
+                  rows between unbounded preceding and 1 preceding
+                ) as prev_best
+         from (
+           select distinct on (w.id, we.exercise_id)
+                  we.exercise_id, w.id as workout_id, w.ended_at, ws.weight_kg, ws.reps,
+                  ws.weight_kg * 100000 + ws.reps as score
+           from public.workout_sets ws
+           join public.workout_exercises we on we.id = ws.workout_exercise_id
+           join public.workouts w on w.id = we.workout_id
+           where w.user_id = $1 and w.ended_at is not null and ws.is_completed
+             and we.exercise_id = any($2::uuid[])
+           order by w.id, we.exercise_id, ws.weight_kg desc, ws.reps desc
+         ) b
+       ) r
+       where prev_best is null or score > prev_best`,
+      [userId, exerciseIds],
+    );
+  }
+
+  /**
    * Recalculo integro de stats (volumen total, sesiones, racha semanal).
    * O(datos del usuario): correcto por construccion frente a upserts repetidos,
    * y sobrado a la escala del anio 1. Optimizar solo si el perfilado lo pide.
@@ -378,29 +421,19 @@ export class WorkoutsService {
       [userId, DEFAULT_TIME_ZONE],
     );
 
-    // Sesiones terminadas por semana ISO, ultimas 104 semanas.
+    // Sesiones terminadas por semana ISO, ultimas STREAK_WINDOW_WEEKS semanas.
     const { rows: weeks } = await tx.query<{ week_start: string; sessions: number }>(
       `select to_char(date_trunc('week', started_at at time zone $2), 'YYYY-MM-DD') as week_start,
               count(*)::int as sessions
        from public.workouts
        where user_id = $1 and ended_at is not null
-         and started_at >= (date_trunc('week', now() at time zone $2) - interval '104 weeks') at time zone $2
+         and started_at >= (date_trunc('week', now() at time zone $2) - make_interval(weeks => $3)) at time zone $2
        group by 1`,
-      [userId, zona.tz],
+      [userId, zona.tz, STREAK_WINDOW_WEEKS],
     );
     const byWeek = new Map(weeks.map((r) => [r.week_start, r.sessions]));
 
-    // Racha: semanas consecutivas cumplidas terminando en la semana pasada;
-    // la semana en curso suma solo si YA se cumplio (no rompe la racha mientras avanza).
-    // TODO(gamificacion v2): consumir grace_weeks para puentear una semana fallida.
-    const currentWeek = new Date(`${zona.current_week}T00:00:00Z`);
-    let streak = 0;
-    if ((byWeek.get(fmt(currentWeek)) ?? 0) >= weeklyGoal) streak++;
-    for (let i = 1; i <= 104; i++) {
-      const wk = fmt(addWeeks(currentWeek, -i));
-      if ((byWeek.get(wk) ?? 0) >= weeklyGoal) streak++;
-      else break;
-    }
+    const { streak, graceWeeks } = computeStreak(byWeek, new Date(`${zona.current_week}T00:00:00Z`), weeklyGoal);
 
     const {
       rows: [stats],
@@ -415,11 +448,12 @@ export class WorkoutsService {
            total_workouts  = $3,
            current_streak  = $4,
            longest_streak  = greatest(longest_streak, $4),
+           grace_weeks     = $5,
            updated_at      = now()
        where user_id = $1
        returning total_volume_kg::float8 as total_volume_kg, total_workouts,
                  current_streak, longest_streak`,
-      [userId, totals.total_volume_kg, totals.total_workouts, streak],
+      [userId, totals.total_volume_kg, totals.total_workouts, streak, graceWeeks],
     );
 
     return { streakDelta: streak - prevStreak, stats };
@@ -434,7 +468,8 @@ export class WorkoutsService {
     const {
       rows: [{ prs }],
     } = await tx.query<{ prs: number }>(
-      "select count(*)::int as prs from public.exercise_prs where user_id = $1",
+      // Cada PR roto cuenta (log de eventos), no solo los vigentes: `prs_25` es medible.
+      "select count(*)::int as prs from public.pr_events where user_id = $1",
       [userId],
     );
     // Reglas compartidas con la vitrina (GET /me/achievements): una sola fuente.
@@ -455,14 +490,4 @@ export class WorkoutsService {
     );
     return rows.map((r) => r.achievement_id);
   }
-}
-
-/* ===== Helpers de semana ISO (lunes, como fecha `YYYY-MM-DD` a medianoche UTC) ===== */
-function addWeeks(d: Date, n: number): Date {
-  const out = new Date(d);
-  out.setUTCDate(out.getUTCDate() + n * 7);
-  return out;
-}
-function fmt(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
