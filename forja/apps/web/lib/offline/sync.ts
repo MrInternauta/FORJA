@@ -68,15 +68,25 @@ async function confirmSent(
  * las reenvia (el servidor vuelve a responder `skipped_stale` sin recompensas) y
  * reintenta la descarga. Un 404 (borrado en otro dispositivo) devuelve `null`.
  */
-async function fetchServerCopies(ids: string[]): Promise<Map<string, Workout | null>> {
+async function fetchServerCopies(sentAt: Map<string, string>): Promise<Map<string, Workout | null>> {
   const copies = new Map<string, Workout | null>();
-  for (const id of ids) {
+  for (const [id, sent] of sentAt) {
+    let copy: Workout;
     try {
-      copies.set(id, await api<Workout>(`/workouts/${id}`));
+      copy = await api<Workout>(`/workouts/${id}`);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) copies.set(id, null);
-      else throw err;
+      if (err instanceof ApiError && err.status === 404) {
+        copies.set(id, null);
+        continue;
+      }
+      throw err;
     }
+    // `skipped_stale` garantiza que la del servidor es >= la enviada. Una mas vieja
+    // viene de la cache del SW (NetworkFirst sin red): no sirve, se reintenta despues.
+    if (Date.parse(copy.client_updated_at) < Date.parse(sent)) {
+      throw new Error(`Copia de ${id} mas vieja que la enviada (cache)`);
+    }
+    copies.set(id, copy);
   }
   return copies;
 }
@@ -159,7 +169,11 @@ async function runFlush(): Promise<SyncRewards | null> {
       await confirmSent(sentSeqs, applied);
       // Los obsoletos se confirman despues de traer la copia del servidor: si la
       // descarga falla, siguen en el outbox y nada se pierde.
-      const staleUpserts = stale.filter((id) => latest.get(id)?.op === "upsert");
+      const staleUpserts = new Map<string, string>();
+      for (const id of stale) {
+        const sent = latest.get(id);
+        if (sent?.op === "upsert") staleUpserts.set(id, sent.client_updated_at);
+      }
       await confirmSent(sentSeqs, new Set(stale), await fetchServerCopies(staleUpserts));
     }
   } catch {

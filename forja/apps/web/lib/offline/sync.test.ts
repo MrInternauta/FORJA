@@ -373,6 +373,23 @@ describe("flushOutbox: skipped_stale (LWW, gana el servidor)", () => {
     expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...serverCopy, sync_status: "synced" });
   });
 
+  it("NO acepta una copia mas vieja que la enviada (cache del SW sin red): se reintenta", async () => {
+    const cached = makeWorkout({ title: "Vieja en cache", client_updated_at: "2026-07-01T10:30:00.000Z" });
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), cached);
+    const local = makeWorkout();
+    await upsertLocalWorkout(local);
+
+    await flushOutbox();
+
+    expect(getSyncState().phase).toBe("error");
+    expect(await localDb.outbox.count()).toBe(1);
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...local, sync_status: "pending" });
+
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), serverCopy);
+    await flushOutbox();
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...serverCopy, sync_status: "synced" });
+  });
+
   it("404 (borrado en otro dispositivo): confirma y conserva la copia local", async () => {
     routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
       throw new ApiError(404, "API 404");
