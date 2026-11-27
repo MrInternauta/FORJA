@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { z } from "zod";
 import { SyncRequestSchema, WorkoutSchema } from "@forja/shared";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -29,6 +40,14 @@ export class WorkoutsController {
   @Get("workouts/last-set/:exerciseId")
   lastSet(@CurrentUser() user: JwtUser, @Param("exerciseId", ParseUUIDPipe) exerciseId: string) {
     return this.workouts.lastSet(user.id, exerciseId);
+  }
+
+  /** Documento completo: el cliente reemplaza su copia local tras un `skipped_stale` del sync. */
+  @Get("workouts/:id")
+  async getOne(@CurrentUser() user: JwtUser, @Param("id", ParseUUIDPipe) id: string) {
+    const workout = await this.workouts.getOne(user.id, id);
+    if (!workout) throw new NotFoundException("Entrenamiento no encontrado");
+    return workout;
   }
 
   /** POST /workouts individual = sync de un solo upsert (mismo camino de codigo). */

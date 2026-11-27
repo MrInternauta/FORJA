@@ -21,6 +21,8 @@ function workout({ id = randomUUID(), routine_id = null, started_at, ended_at = 
   };
 }
 const upsert = (w) => ({ op: "upsert", workout: w });
+/** JSON con las llaves ordenadas: compara documentos sin depender del orden de las columnas. */
+const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
 
 const MX = "America/Mexico_City"; // zona por defecto del perfil
 const DAY = 24 * H;
@@ -149,6 +151,12 @@ r = await call(A.token, "GET", "/workouts");
 const s1Row = r.body.items.find((w) => w.id === S1);
 check("LWW: el servidor conserva la versión nueva (3 series, 1380 kg)", s1Row?.sets_completed === 3 && near(s1Row.volume_kg, 1380), s1Row);
 check("duración calculada (50 min)", s1Row?.duration_seconds === 3000, s1Row?.duration_seconds);
+// Tras un skipped_stale el cliente reemplaza su copia local con GET /workouts/:id
+r = await call(A.token, "GET", `/workouts/${S1}`);
+check("GET /workouts/:id → documento completo igual al último upsert aplicado", r.status === 200 && canon(r.body) === canon({ ...s1Final, notes: null }), r.body);
+check("GET /workouts/:id de otro usuario → 404", (await call(B.token, "GET", `/workouts/${S1}`)).status === 404);
+check("GET /workouts/:id inexistente → 404", (await call(A.token, "GET", `/workouts/${randomUUID()}`)).status === 404);
+check("GET /workouts/no-uuid → 400", (await call(A.token, "GET", "/workouts/no-uuid")).status === 400);
 
 section("Segunda sesión: desempate por reps, racha y lote con un ítem roto");
 const s2Start = now - 1 * H;
