@@ -6,13 +6,16 @@
         "^build"
       ],
       "env": [
-        "VERCEL"
+        "VERCEL",
+        "NEXT_PUBLIC_*"
       ],
       "outputs": [
         "dist/**",
         "dist-esm/**",
         ".next/**",
-        "!.next/cache/**"
+        "!.next/cache/**",
+        "public/sw.js",
+        "public/swe-worker*.js"
       ]
     },
     "typecheck": {
