@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { liveQuery, type EntityTable } from "dexie";
 import type { Workout } from "@forja/shared";
 import { requestBackgroundSync } from "./background-sync";
 
@@ -53,6 +53,18 @@ export async function upsertLocalWorkout(workout: Workout): Promise<void> {
 /** Sesion(es) sin `ended_at`: para la pildora flotante y para resumir tras recargar. */
 export async function getActiveLocalWorkout(): Promise<LocalWorkout | undefined> {
   return localDb.workouts.filter((w) => w.ended_at == null).first();
+}
+
+/**
+ * Avisa cada vez que cambia la sesion activa (liveQuery de Dexie: escrituras de
+ * esta pestana y de otras). Devuelve la funcion para dejar de observar.
+ */
+export function observeActiveLocalWorkout(onChange: (workout: LocalWorkout | null) => void): () => void {
+  const sub = liveQuery(getActiveLocalWorkout).subscribe({
+    next: (w) => onChange(w ?? null),
+    error: (err) => console.warn("No se pudo observar la sesion activa", err),
+  });
+  return () => sub.unsubscribe();
 }
 
 export async function getLocalWorkout(id: string): Promise<LocalWorkout | undefined> {

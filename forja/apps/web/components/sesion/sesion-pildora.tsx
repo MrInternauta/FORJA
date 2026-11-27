@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dumbbell, X } from "lucide-react";
-import { discardLocalWorkout, getActiveLocalWorkout, type LocalWorkout } from "@/lib/offline/db";
-
-const POLL_MS = 3000;
+import { discardLocalWorkout, observeActiveLocalWorkout, type LocalWorkout } from "@/lib/offline/db";
 
 /**
  * Pildora flotante (plan §6.1): salir de /sesion "minimiza" — la sesion sigue
@@ -16,20 +14,8 @@ export function SesionPildora() {
   const [active, setActive] = useState<LocalWorkout | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    const poll = () => {
-      void getActiveLocalWorkout().then((w) => {
-        if (!cancelled) setActive(w ?? null);
-      });
-    };
-    poll();
-    const id = setInterval(poll, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+  // Sin sondeo: Dexie avisa al empezar, terminar o descartar la sesion (tambien desde otra pestana).
+  useEffect(() => observeActiveLocalWorkout(setActive), []);
 
   useEffect(() => {
     if (!active) return;
@@ -64,7 +50,7 @@ export function SesionPildora() {
       </button>
       <button
         type="button"
-        onClick={() => void discardLocalWorkout(active.id).then(() => setActive(null))}
+        onClick={() => void discardLocalWorkout(active.id)}
         aria-label="Descartar entrenamiento"
         className="flex h-11 w-11 shrink-0 items-center justify-center text-[var(--fg-muted)] transition-colors duration-[var(--duration-fast)] hover:text-[var(--danger)]"
       >

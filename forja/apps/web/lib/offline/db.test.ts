@@ -7,7 +7,7 @@ vi.mock("./background-sync", async (importOriginal) => ({
   requestBackgroundSync: vi.fn(async () => false),
 }));
 
-import { localDb, pickLocalSession, upsertLocalWorkout } from "./db";
+import { discardLocalWorkout, localDb, observeActiveLocalWorkout, pickLocalSession, upsertLocalWorkout, type LocalWorkout } from "./db";
 
 const ACTIVE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const DONE = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -58,5 +58,45 @@ describe("pickLocalSession", () => {
 
   it("un ?resume= que no existe en local es un error (la UI ofrece volver)", async () => {
     await expect(pickLocalSession(ACTIVE)).rejects.toThrow();
+  });
+});
+
+describe("observeActiveLocalWorkout (pildora sin sondeo)", () => {
+  /** Observa y devuelve las emisiones; `until` espera a que llegue una que cumpla. */
+  function observe() {
+    const seen: (LocalWorkout | null)[] = [];
+    const stop = observeActiveLocalWorkout((w) => seen.push(w));
+    const until = (pred: (w: LocalWorkout | null) => boolean) =>
+      vi.waitFor(() => expect(seen.some(pred)).toBe(true), { timeout: 2000 });
+    return { seen, stop, until };
+  }
+
+  it("emite al empezar, al terminar y al descartar, sin esperar un intervalo", async () => {
+    const { seen, stop, until } = observe();
+    await until((w) => w === null);
+
+    await upsertLocalWorkout(makeWorkout(ACTIVE, null));
+    await until((w) => w?.id === ACTIVE);
+
+    seen.length = 0;
+    await upsertLocalWorkout(makeWorkout(ACTIVE, "2026-07-01T11:00:00.000Z")); // terminada: ya no es activa
+    await until((w) => w === null);
+
+    await upsertLocalWorkout(makeWorkout(DONE, null));
+    await until((w) => w?.id === DONE);
+    seen.length = 0;
+    await discardLocalWorkout(DONE);
+    await until((w) => w === null);
+    stop();
+  });
+
+  it("al dejar de observar ya no avisa", async () => {
+    const { seen, stop, until } = observe();
+    await until((w) => w === null);
+    stop();
+    seen.length = 0;
+    await upsertLocalWorkout(makeWorkout(ACTIVE, null));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(seen).toEqual([]);
   });
 });

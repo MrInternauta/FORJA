@@ -242,6 +242,26 @@ try {
   await waitText(/esta semana/);
   check("tras sincronizar: Progreso 2,780 kg, sin contar la sesión dos veces", /2,780\s*kg\s*esta semana/.test(await text()), (await text()).slice(0, 300));
 
+  section("Píldora de sesión (liveQuery, sin sondeo)");
+  await page.goto(`${WEB}/entrenar`, { waitUntil: "networkidle0" });
+  await clickLabel(`Empezar ${ROUTINE_NAME}`);
+  await page.waitForFunction(() => location.pathname === "/sesion", { timeout: 10000 });
+  await waitText(/Press banca/);
+  await clickText("COMPLETAR SERIE"); // la sesión vive en Dexie desde la primera serie
+  await sleep(400);
+  await page.goto(`${WEB}/hoy`, { waitUntil: "networkidle0" });
+  const pildora = () => page.$('button[aria-label="Descartar entrenamiento"]');
+  check("al salir de /sesion aparece la píldora", !!(await waitFor(pildora, 5000)));
+  // Otra pestaña descarta la sesión: Dexie avisa a esta sin esperar el sondeo de 3 s de antes.
+  const otra = await browser.newPage();
+  await otra.goto(`${WEB}/hoy`, { waitUntil: "networkidle0" });
+  const enOtra = await waitFor(() => otra.$('button[aria-label="Descartar entrenamiento"]'), 5000);
+  const t0 = Date.now();
+  await enOtra.click();
+  const gone = await waitFor(async () => ((await pildora()) ? null : true), 1500, 50);
+  check("descartar en otra pestaña la quita aquí en < 1.5 s", !!gone, `${Date.now() - t0} ms`);
+  await otra.close();
+
   section("Zona horaria del dispositivo");
   // El perfil nació sin zona (America/Mexico_City); un dispositivo en Bogotá la alinea al abrir la app.
   await page.emulateTimezone("America/Bogota");
