@@ -326,4 +326,18 @@ const racha = async (u) => (await call(u.token, "GET", "/me")).body.stats.curren
 check("racha CDMX: la sesión es de antes de la semana pasada local → 0", rachaEsperada(MX) === 0 && (await racha(MXr)) === 0, await racha(MXr));
 check("racha UTC: la misma sesión se cuenta en las semanas UTC", (await racha(UTCr)) === rachaEsperada("UTC"), { racha: await racha(UTCr), esperada: rachaEsperada("UTC") });
 
+section("Borrado de cuenta (requiere SUPABASE_SERVICE_ROLE_KEY en la API)");
+const D = await newUser("d");
+await onboard(D, `e2e_d_${String(now).slice(-8)}`);
+check("D con perfil antes de borrar", (await call(D.token, "GET", "/me")).status === 200);
+check("DELETE /me → 204", (await call(D.token, "DELETE", "/me")).status === 204);
+const relogin = await signIn(D.email, D.password).then(() => "entró", (e) => e.message);
+check("tras DELETE /me ya no puede iniciar sesión", relogin !== "entró", "sigue en auth.users: ¿la API tiene SUPABASE_SERVICE_ROLE_KEY?");
+const adminGet = await fetch(`${config.supabase}/auth/v1/admin/users/${D.id}`, {
+  headers: { apikey: config.service, Authorization: `Bearer ${config.service}` },
+});
+check("auth.users ya no tiene a D", adminGet.status === 404, adminGet.status);
+check("token viejo: GET /me → 404 (sin perfil)", (await call(D.token, "GET", "/me")).status === 404);
+check("DELETE /me repetido → 204 (idempotente)", (await call(D.token, "DELETE", "/me")).status === 204);
+
 finish();
