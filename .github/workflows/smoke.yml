@@ -1,7 +1,6 @@
 # Humo post-despliegue. Los despliegues los hace la integracion Git de Vercel
-# (preview por PR, produccion al mergear a main); Vercel publica cada uno como
-# un deployment de GitHub y este workflow lo prueba cuando queda en "success".
-# Solo produccion: los previews siguen tras Vercel Authentication.
+# (solo produccion, al mergear a main: sin previews); Vercel publica cada uno
+# como un deployment de GitHub y este workflow lo prueba cuando queda en "success".
 name: Smoke
 
 on:
