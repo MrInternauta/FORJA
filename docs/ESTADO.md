@@ -355,6 +355,19 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
   la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
 
+### Builder de rutinas: reordenar arrastrando del handle (2026-11-27)
+
+- Handle `GripVertical` en cada tarjeta del builder, con Pointer Events nativos (sin librería de dnd: no suma
+  bundle). Reordena en vivo comparando el puntero con el punto medio de las demás tarjetas y hace scroll solo cerca
+  de los bordes (abajo deja libre la barra fija de Guardar + tab bar). La tarjeta arrastrada se marca con borde
+  `--accent` plano.
+- Las flechas Subir/Bajar se quedan: son la alternativa de teclado, lector de pantalla y un solo puntero (WCAG
+  2.5.7). Por eso el handle no entra en el orden de Tab. Una región `aria-live` anuncia "Nombre: posición X de N"
+  tras mover con flechas o al soltar.
+- Helpers puros `moveItem`/`targetIndex` en `lib/rutinas/reordenar.ts`. Pruebas: vitest +9 (76/76). E2E navegador
+  **45/45**: arrastrar la 3ª tarjeta al principio, guardar y comprobar el orden por API; la flecha "Bajar" sigue
+  funcionando.
+
 ### Splash screens de iOS generadas en build (2026-11-27)
 
 - `lib/pwa/splash.ts`: 14 tamaños de iPhone (solo vertical) y 9 de iPad (vertical y horizontal) = 32 variantes,
@@ -375,7 +388,6 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 
 ## Deuda técnica registrada
 
-- Drag & drop con handle en el builder (hoy flechas).
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
