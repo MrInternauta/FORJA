@@ -2,7 +2,7 @@
 // Requisitos: `supabase start`, API en :3001 (`pnpm --filter @forja/api build && node apps/api/dist/main.js`).
 // Uso: pnpm --filter @forja/e2e e2e:api
 import { randomUUID } from "node:crypto";
-import { call, check, finish, near, newUser, onboard, section, signIn } from "./lib.mjs";
+import { call, check, config, finish, near, newUser, onboard, section, signIn } from "./lib.mjs";
 
 const iso = (d) => new Date(d).toISOString();
 const now = Date.now();
@@ -21,6 +21,20 @@ function workout({ id = randomUUID(), routine_id = null, started_at, ended_at = 
   };
 }
 const upsert = (w) => ({ op: "upsert", workout: w });
+
+const MX = "America/Mexico_City"; // zona por defecto del perfil
+const DAY = 24 * H;
+/** Lunes (`YYYY-MM-DD`) de la semana ISO de `instante` en la zona `tz`: el mismo corte que la API. */
+function lunes(instante, tz) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(new Date(instante))
+      .map((x) => [x.type, x.value]),
+  );
+  const d = new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
 
 /* ================================================================== */
 
@@ -49,6 +63,11 @@ check("JWT trae claim user_role=FREE (hook)", claim.user_role === "FREE", claim.
 r = await call(A.token, "GET", "/me");
 check("GET /me → perfil + stats", r.status === 200 && r.body.profile.username === userA && r.body.stats.weekly_goal === 3, r.body);
 check("privado por defecto", r.body?.profile?.is_public === false);
+check("zona por defecto America/Mexico_City", r.body?.profile?.time_zone === MX, r.body?.profile?.time_zone);
+check("PATCH time_zone desconocida → 400", (await call(A.token, "PATCH", "/me", { time_zone: "Marte/Olympus_Mons" })).status === 400);
+check("PATCH time_zone=America/Bogota", (await call(A.token, "PATCH", "/me", { time_zone: "America/Bogota" })).status === 200);
+check("time_zone persistida", (await call(A.token, "GET", "/me")).body.profile.time_zone === "America/Bogota");
+await call(A.token, "PATCH", "/me", { time_zone: MX });
 check("PATCH weekly_goal=2", (await call(A.token, "PATCH", "/me", { weekly_goal: 2 })).status === 200);
 check("PATCH weekly_goal=8 → 400", (await call(A.token, "PATCH", "/me", { weekly_goal: 8 })).status === 400);
 check("weekly_goal persistido", (await call(A.token, "GET", "/me")).body.stats.weekly_goal === 2);
@@ -203,8 +222,7 @@ check("historial: sesión 1 top 62.5×8, 980 kg, 2 series", r.body.points[0].top
 check("historial de ejercicio inexistente → 404", (await call(A.token, "GET", `/analytics/exercise/${randomUUID()}/history`)).status === 404);
 r = await call(A.token, "GET", "/analytics/weekly-summary");
 check("weekly-summary por defecto: semana pasada vacía, is_latest, racha 1", r.status === 200 && r.body.sessions === 0 && r.body.is_latest === true && r.body.current_streak === 1, r.body);
-const monday = new Date(); monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-check("weekly-summary de la semana en curso → 400", (await call(A.token, "GET", `/analytics/weekly-summary?week=${monday.toISOString().slice(0, 10)}`)).status === 400);
+check("weekly-summary de la semana en curso → 400", (await call(A.token, "GET", `/analytics/weekly-summary?week=${lunes(now, MX)}`)).status === 400);
 check("weekly-summary con un no-lunes → 400", (await call(A.token, "GET", `/analytics/weekly-summary?week=2026-10-07`)).status === 400);
 
 section("Medallas y aislamiento");
@@ -250,5 +268,54 @@ check("2ª sesión (objetivo 2 cumplido): PR + racha pendientes", JSON.stringify
 await call(C.token, "POST", "/me/rewards/ack", { ids: p2.map((x) => x.id) });
 await call(C.token, "POST", "/sync/workouts", { operations: [{ op: "delete", workout_id: R2.id, client_updated_at: tick() }] });
 check("borrar la sesión del PR (baja) no deja pendientes", (await pend()).length === 0);
+
+section("Zona horaria: las semanas se cortan en el lunes 00:00 local del usuario");
+const tag = String(now).slice(-8);
+const X = await newUser("tzx");
+check(
+  "onboarding con zona desconocida → 400, sin perfil",
+  (await call(X.token, "POST", "/auth/onboarding", { username: `e2e_x_${tag}`, time_zone: "Marte/Olympus_Mons" })).status === 400 &&
+    (await call(X.token, "GET", "/me")).status === 404,
+);
+const MXu = await newUser("mx"), UTCu = await newUser("utc");
+await onboard(MXu, `e2e_mx_${tag}`, { time_zone: MX });
+await onboard(UTCu, `e2e_utc_${tag}`, { time_zone: "UTC" });
+check("onboarding guarda la zona del dispositivo", (await call(UTCu.token, "GET", "/me")).body.profile.time_zone === "UTC");
+// profiles también se actualiza directo por RLS: el trigger de la BD rechaza la zona.
+r = await fetch(`${config.supabase}/rest/v1/profiles?id=eq.${MXu.id}`, {
+  method: "PATCH",
+  headers: { apikey: config.anon, Authorization: `Bearer ${MXu.token}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ time_zone: "Marte/Olympus_Mons" }),
+});
+check("PATCH directo por RLS con zona desconocida → rechazado por la BD", r.status === 400 && (await call(MXu.token, "GET", "/me")).body.profile.time_zone === MX, r.status);
+// Domingo 23:30 en CDMX = lunes 05:30 UTC (CDMX es UTC-6 todo el año). Dos semanas atrás: semanas ya completas.
+const borde = Date.parse(`${lunes(now, "UTC")}T05:30:00Z`) - 14 * DAY;
+const semanaMx = lunes(borde, MX), semanaUtc = lunes(borde, "UTC");
+check("el borde cae en semanas distintas según la zona", semanaMx !== semanaUtc, { semanaMx, semanaUtc });
+const sesionBorde = () => workout({ started_at: borde, ended_at: borde + 45 * 60_000, exercises: [{ exercise_id: BENCH.id, sets: [set(1, 50, 10)] }] });
+for (const u of [MXu, UTCu]) await call(u.token, "POST", "/sync/workouts", { operations: [upsert(sesionBorde())] });
+const semanaConVolumen = async (u) => (await call(u.token, "GET", "/analytics/volume?weeks=4")).body.find((p) => p.workouts > 0)?.week_start;
+check("volume CDMX: el domingo 23:30 queda en su semana local", (await semanaConVolumen(MXu)) === semanaMx, await semanaConVolumen(MXu));
+check("volume UTC: la misma sesión cae en la semana del lunes", (await semanaConVolumen(UTCu)) === semanaUtc, await semanaConVolumen(UTCu));
+const sesiones = async (u, week) => (await call(u.token, "GET", `/analytics/weekly-summary?week=${week}`)).body.sessions;
+check("weekly-summary CDMX: cuenta en su semana local, no en la siguiente", (await sesiones(MXu, semanaMx)) === 1 && (await sesiones(MXu, semanaUtc)) === 0);
+check("weekly-summary UTC: al revés", (await sesiones(UTCu, semanaUtc)) === 1 && (await sesiones(UTCu, semanaMx)) === 0);
+r = await call(MXu.token, "GET", "/analytics/distribution?by=muscle_group&weeks=4");
+check("distribution?weeks=4 incluye la sesión", r.status === 200 && r.body.find((d) => d.key === "chest")?.sets === 1, r.body);
+check("distribution con weeks y from → 400", (await call(MXu.token, "GET", `/analytics/distribution?weeks=4&from=${iso(now - DAY)}`)).status === 400);
+// Racha (objetivo 1): una sola sesión el domingo 23:30 CDMX justo antes de la semana pasada local.
+const MXr = await newUser("mxr"), UTCr = await newUser("utcr");
+await onboard(MXr, `e2e_mxr_${tag}`, { time_zone: MX });
+await onboard(UTCr, `e2e_utcr_${tag}`, { time_zone: "UTC" });
+const finRacha = Date.parse(`${lunes(now, MX)}T06:00:00Z`) - 7 * DAY - 30 * 60_000;
+for (const u of [MXr, UTCr]) {
+  await call(u.token, "PATCH", "/me", { weekly_goal: 1 });
+  await call(u.token, "POST", "/sync/workouts", { operations: [upsert(workout({ started_at: finRacha, ended_at: finRacha + 20 * 60_000, exercises: [{ exercise_id: BENCH.id, sets: [set(1, 40, 10)] }] }))] });
+}
+// Racha 1 si la sesión cae en la semana actual o en la pasada de SU zona; si no, 0.
+const rachaEsperada = (tz) => ([lunes(now, tz), lunes(now - 7 * DAY, tz)].includes(lunes(finRacha, tz)) ? 1 : 0);
+const racha = async (u) => (await call(u.token, "GET", "/me")).body.stats.current_streak;
+check("racha CDMX: la sesión es de antes de la semana pasada local → 0", rachaEsperada(MX) === 0 && (await racha(MXr)) === 0, await racha(MXr));
+check("racha UTC: la misma sesión se cuenta en las semanas UTC", (await racha(UTCr)) === rachaEsperada("UTC"), { racha: await racha(UTCr), esperada: rachaEsperada("UTC") });
 
 finish();

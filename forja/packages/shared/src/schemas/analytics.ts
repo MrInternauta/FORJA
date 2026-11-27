@@ -21,11 +21,17 @@ export const DistributionQuerySchema = z
   .object({
     from: z.string().datetime({ offset: true }).optional(),
     to: z.string().datetime({ offset: true }).optional(),
+    /** Ultimas N semanas hasta la actual, cortadas en el lunes local del usuario (el mismo corte que GET /analytics/volume). */
+    weeks: z.coerce.number().int().min(1).max(52).optional(),
     by: z.enum(DISTRIBUTION_DIMENSIONS).default("muscle_group"),
   })
   .refine((q) => !q.from || !q.to || new Date(q.from) <= new Date(q.to), {
     message: "`from` debe ser anterior o igual a `to`",
     path: ["from"],
+  })
+  .refine((q) => !(q.weeks && q.from), {
+    message: "Usa `weeks` o `from`, no ambos",
+    path: ["weeks"],
   });
 export type DistributionQuery = z.infer<typeof DistributionQuerySchema>;
 
@@ -79,7 +85,7 @@ export type ExerciseHistory = z.infer<typeof ExerciseHistorySchema>;
 
 /* ---------- GET /analytics/weekly-summary ---------- */
 
-/** `week` = lunes (UTC) de la semana a resumir; por defecto la ultima semana completa. */
+/** `week` = lunes (en la zona del usuario) de la semana a resumir; por defecto la ultima semana completa. */
 export const WeeklySummaryQuerySchema = z.object({
   week: z
     .string()

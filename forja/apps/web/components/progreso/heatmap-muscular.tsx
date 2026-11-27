@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { MUSCLE_LABELS } from "@/lib/labels";
-import { heatLegend, heatStep, rangeStart } from "@/lib/progreso/heatmap";
+import { heatLegend, heatStep } from "@/lib/progreso/heatmap";
 import { formatKg, type RangoSemanas } from "@/lib/progreso/volumen";
 
 type Estado = { fase: "cargando" } | { fase: "error" } | { fase: "listo"; points: DistributionPoint[] };
@@ -154,8 +154,8 @@ export function HeatmapMuscular({ weeks }: { weeks: RangoSemanas }) {
   useEffect(() => {
     let vigente = true;
     setEstado({ fase: "cargando" });
-    const from = encodeURIComponent(rangeStart(weeks));
-    api<DistributionPoint[]>(`/analytics/distribution?by=muscle_group&from=${from}`)
+    // `weeks` lo corta la API en el lunes local del usuario, igual que la gráfica de volumen.
+    api<DistributionPoint[]>(`/analytics/distribution?by=muscle_group&weeks=${weeks}`)
       .then((points) => {
         if (!vigente) return;
         setEstado({ fase: "listo", points });

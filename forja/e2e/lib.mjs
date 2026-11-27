@@ -109,8 +109,8 @@ export async function newUser(tag) {
 }
 
 /** Onboarding + token nuevo: el claim `user_role` lo pone el hook al EMITIR el token. */
-export async function onboard(user, username) {
-  const r = await call(user.token, "POST", "/auth/onboarding", { username });
+export async function onboard(user, username, extra = {}) {
+  const r = await call(user.token, "POST", "/auth/onboarding", { username, ...extra });
   user.token = await signIn(user.email, user.password);
   return r;
 }

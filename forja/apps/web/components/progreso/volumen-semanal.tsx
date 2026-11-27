@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { WeeklyVolumePoint } from "@forja/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useMe } from "@/components/auth/auth-gate";
 import { api } from "@/lib/api";
 import { GraficaVolumen } from "./grafica-volumen";
 import { fillWeeks, formatKg, weekOverWeek, type RangoSemanas } from "@/lib/progreso/volumen";
@@ -19,6 +20,7 @@ type Estado =
  * `GET /analytics/volume`; offline el SW sirve la ultima respuesta (Network-First).
  */
 export function VolumenSemanal({ weeks }: { weeks: RangoSemanas }) {
+  const { profile } = useMe();
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
   const reintentar = useCallback(() => setIntento((n) => n + 1), []);
@@ -27,12 +29,15 @@ export function VolumenSemanal({ weeks }: { weeks: RangoSemanas }) {
     let vigente = true; // descarta respuestas de un rango anterior
     setEstado({ fase: "cargando" });
     api<WeeklyVolumePoint[]>(`/analytics/volume?weeks=${weeks}`)
-      .then((points) => vigente && setEstado({ fase: "listo", points: fillWeeks(points, weeks) }))
+      .then(
+        (points) =>
+          vigente && setEstado({ fase: "listo", points: fillWeeks(points, weeks, profile.time_zone) }),
+      )
       .catch(() => vigente && setEstado({ fase: "error" }));
     return () => {
       vigente = false;
     };
-  }, [weeks, intento]);
+  }, [weeks, intento, profile.time_zone]);
 
   return (
     <Card>

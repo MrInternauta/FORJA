@@ -226,6 +226,15 @@ try {
   check("stats: 2 sesiones, 2780 kg", stats.total_workouts === 2 && near(stats.total_volume_kg, 2780), stats);
   await sleep(1500);
   check("BarraSync desaparece cuando no hay nada que decir", !/Sin conexión|Sincronizando|pendiente/i.test(await text()));
+
+  section("Zona horaria del dispositivo");
+  // El perfil nació sin zona (America/Mexico_City); un dispositivo en Bogotá la alinea al abrir la app.
+  await page.emulateTimezone("America/Bogota");
+  await page.goto(`${WEB}/perfil`, { waitUntil: "networkidle0" });
+  const zonaAlineada = await waitFor(async () => ((await api("GET", "/me")).body.profile.time_zone === "America/Bogota" ? true : null), 10000);
+  check("AuthGate guarda la zona del dispositivo en el perfil", !!zonaAlineada, (await api("GET", "/me")).body.profile.time_zone);
+  check("Perfil muestra la zona", /America\/Bogota/.test(await text()), (await text()).slice(0, 300));
+  await shot("06-perfil-zona");
   check("sin errores de JS en la página", pageErrors.length === 0, pageErrors);
 } catch (e) {
   // Un paso que no se pudo dar (p. ej. pantalla en blanco) cuenta como falla y no oculta el resumen.

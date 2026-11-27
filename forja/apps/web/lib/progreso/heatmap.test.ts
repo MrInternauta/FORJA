@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heatLegend, heatStep, rangeStart } from "./heatmap";
+import { heatLegend, heatStep } from "./heatmap";
 
 describe("heatStep", () => {
   it("0 sin series; el maximo siempre es el paso mas alto", () => {
@@ -34,13 +34,5 @@ describe("heatLegend", () => {
 
   it("vacia sin datos", () => {
     expect(heatLegend(0)).toEqual([]);
-  });
-});
-
-describe("rangeStart", () => {
-  it("lunes UTC de hace weeks-1 semanas", () => {
-    const now = new Date("2026-09-17T12:00:00Z"); // semana del 14
-    expect(rangeStart(1, now)).toBe("2026-09-14T00:00:00.000Z");
-    expect(rangeStart(4, now)).toBe("2026-08-24T00:00:00.000Z");
   });
 });

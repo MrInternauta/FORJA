@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Patch, Post } from "@nestjs/common";
 import { z } from "zod";
-import { AckRewardsSchema, OnboardingSchema } from "@forja/shared";
+import { AckRewardsSchema, OnboardingSchema, TimeZoneSchema } from "@forja/shared";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { JwtUser } from "../auth/jwt-user";
 import { zodParse } from "../common/zod";
@@ -12,6 +12,7 @@ const PatchMeSchema = z.object({
   avatar_url: z.string().url().optional(),
   is_public: z.boolean().optional(),
   weekly_goal: z.number().int().min(1).max(7).optional(),
+  time_zone: TimeZoneSchema.optional(),
 });
 
 @Controller()
