@@ -115,6 +115,14 @@ try {
     return !!r?.active;
   });
   check("service worker activo", swReady);
+  const loginHtml = await (await fetch(`${WEB}/login`)).text();
+  const splashLinks = [...loginHtml.matchAll(/rel="apple-touch-startup-image"/g)].length;
+  check("/login declara 32 apple-touch-startup-image", splashLinks === 32, splashLinks);
+  const splashHref = loginHtml.match(/href="(\/splash\/[^"]+)"/)?.[1];
+  const splashRes = splashHref ? await fetch(`${WEB}${splashHref}`) : null;
+  check("la primera splash devuelve 200 image/png",
+    splashRes?.status === 200 && splashRes.headers.get("content-type") === "image/png",
+    `${splashRes?.status} ${splashRes?.headers.get("content-type")}`);
   // Precalentar el caché del SW con las rutas que se usarán offline
   for (const p of ["/entrenar", "/hoy", "/sesion"]) await page.goto(`${WEB}${p}`, { waitUntil: "networkidle0" });
 

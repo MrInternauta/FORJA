@@ -355,6 +355,18 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
   la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
 
+### Splash screens de iOS generadas en build (2026-11-27)
+
+- `lib/pwa/splash.ts`: 14 tamaños de iPhone (solo vertical) y 9 de iPad (vertical y horizontal) = 32 variantes,
+  cada una con su media query exacta (`device-width/height` en CSS px de vertical + `-webkit-device-pixel-ratio` +
+  `orientation`). `appleWebApp.startupImage` en `app/layout.tsx` emite los 32 `<link rel="apple-touch-startup-image">`.
+- `app/splash/[slug]/route.tsx`: `ImageResponse` de `next/og` prerenderizado en build (`force-static`,
+  `generateStaticParams`, `dynamicParams = false` ⇒ 404 para otros tamaños). Fondo `#0c0e12` (oscuro es el único
+  tema al arrancar) e `icon-512.png` centrado al 40 % del lado corto, sin texto. Ningún PNG versionado.
+- Pruebas: vitest `splash.test.ts` (6). E2E navegador: `/login` declara 32 enlaces y la primera splash responde
+  200 `image/png`.
+- Para añadir un dispositivo nuevo basta con agregarlo a `SPLASH_DEVICES`.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -364,7 +376,6 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 ## Deuda técnica registrada
 
 - Drag & drop con handle en el builder (hoy flechas).
-- Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
