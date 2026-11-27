@@ -11,14 +11,14 @@ Registro de lo construido en las sesiones de planeación y generación, con las 
 | Plazo MVP / infra | 12–16 semanas / $50–200 USD/mes |
 | Región | LATAM (es-MX), sin requisitos regulatorios especiales; unidades en kg |
 | Pagos (Fase 3) | Stripe recomendado; aislado en futuro `BillingModule` (pregunta abierta #1 sin cerrar) |
-| Hosting backend | Contenedores gestionados (Fly.io/Railway) recomendado (pregunta abierta #3 sin cerrar) |
+| Hosting | **Vercel** (web y api, integración Git; 2026-11-27). Las imágenes OCI se siguen construyendo en CI |
 | Racha | **Semanal** contra objetivo configurable 1–7 (no diaria); 1 semana de gracia ganada cada 4 cumplidas |
 
 ## Preguntas abiertas AÚN sin respuesta del founder
 
 1. ¿Tarjeta internacional (Stripe) basta o hace falta OXXO/SPEI (Mercado Pago)?
 2. Origen de la media del catálogo (propia / licenciada / catálogo reducido inicial).
-3. Hosting definitivo del backend (afecta el paso "push & deploy" comentado en CI).
+3. ~~Hosting definitivo del backend~~ → Vercel (2026-11-27).
 4. Proveedor LLM para Fase 3.
 5. Visibilidad por defecto: implementado **privado por defecto** con opt-in (`is_public`), confirmar.
 
@@ -391,6 +391,22 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
   builder de rutinas (las que validan con zod en el cliente) siguen llevándolo. Ya no hace falta preferir
   `import type` por miedo a zod: importar valores de `@forja/shared` solo trae lo que se usa.
 
+### Despliegue: Vercel + migraciones y humo en Actions (2026-11-27)
+
+- Despliegue: integración Git de Vercel, dos proyectos (`web` con raíz `forja/apps/web`, `api` con raíz
+  `forja/apps/api`). Preview por PR y producción al mergear a `main`. Producción:
+  `https://web-ten-khaki-86.vercel.app` y `https://api-six-tau-49.vercel.app/v1`.
+- Deployment Protection pasó de "todas" a solo previews: producción es pública; los previews siguen tras Vercel
+  Authentication.
+- `ci.yml`, job `migrate` (solo `push` a `main`, después de `verify`): `supabase db push --linked` contra el proyecto
+  `forja` de Supabase. Se activa con la variable `SUPABASE_PROJECT_REF` y el secreto `SUPABASE_ACCESS_TOKEN`; sin la
+  variable se salta. Vercel no espera a Actions, así que toda migración debe ser aditiva (compatible con la API
+  anterior).
+- `smoke.yml`: con cada deployment de producción en `success` prueba `/v1/health` (con `db: true`) en la API y
+  `/login`, `/manifest.webmanifest`, `/sw.js` y una splash en la web.
+- Producción verificada el 2026-11-27: migraciones 0001–0007 aplicadas (`supabase migration list --linked`) y
+  `/v1/health` → `{"status":"ok","db":true}`.
+
 ### Timer de descanso con hora límite y aviso desde el Service Worker (2026-11-27)
 
 - `TimerDescanso` cuenta contra una hora límite (`endsAt`) en vez de restar 1 cada segundo: con la pestaña oculta o
@@ -410,10 +426,8 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 
 ## Después (en orden)
 
-1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
-   (antes de desplegar la API que las usa).
+1. Pasada manual con VoiceOver/TalkBack.
 2. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
 
 ## Deuda técnica registrada
 
-- CI: paso "push & deploy" comentado hasta decidir hosting.
