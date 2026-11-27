@@ -1,5 +1,5 @@
-import type { SyncOperation, SyncResponse, SyncRewards } from "@forja/shared";
-import { api } from "../api";
+import type { SyncOperation, SyncResponse, SyncRewards, Workout } from "@forja/shared";
+import { api, ApiError } from "../api";
 import { localDb, type OutboxEntry } from "./db";
 import { FLUSH_MESSAGE } from "./background-sync";
 import { emitRewards, getSyncState, setSyncState } from "./sync-state";
@@ -30,8 +30,17 @@ async function publishPending(): Promise<number> {
  * vuelo, esa entrada nueva es una intencion aun no enviada y debe sobrevivir.
  * Por el mismo motivo el workout solo pasa a `synced` cuando ya no le queda
  * ninguna entrada en el outbox.
+ *
+ * `serverCopies`: copias del servidor de los `skipped_stale` (regla LWW: gana el
+ * servidor). Reemplazan la local SOLO si ya no queda nada en el outbox para ese
+ * workout; una intencion local pendiente viaja en la siguiente pasada y el LWW
+ * del servidor decide. `null` = el servidor ya no lo tiene: se conserva la local.
  */
-async function confirmSent(sentSeqs: Map<string, number[]>, confirmedIds: Set<string>): Promise<void> {
+async function confirmSent(
+  sentSeqs: Map<string, number[]>,
+  confirmedIds: Set<string>,
+  serverCopies: Map<string, Workout | null> = new Map(),
+): Promise<void> {
   const seqsToDelete: number[] = [];
   for (const id of confirmedIds) {
     seqsToDelete.push(...(sentSeqs.get(id) ?? []));
@@ -42,13 +51,34 @@ async function confirmSent(sentSeqs: Map<string, number[]>, confirmedIds: Set<st
     await localDb.outbox.bulkDelete(seqsToDelete);
     for (const id of confirmedIds) {
       const stillQueued = await localDb.outbox.where("workout_id").equals(id).count();
-      if (stillQueued === 0) {
+      if (stillQueued > 0) continue;
+      const serverCopy = serverCopies.get(id);
+      if (serverCopy) {
+        await localDb.workouts.put({ ...serverCopy, sync_status: "synced" });
+      } else {
         await localDb.workouts.update(id, { sync_status: "synced" });
       }
     }
-    // TODO(conflictos): en `skipped_stale`, traer la copia del servidor y
-    // reemplazar la local (GET /workouts/:id) — regla LWW del documento.
   });
+}
+
+/**
+ * Trae la copia del servidor de cada workout que respondio `skipped_stale`.
+ * Si falla la red, lanza: esas entradas siguen en el outbox y la siguiente pasada
+ * las reenvia (el servidor vuelve a responder `skipped_stale` sin recompensas) y
+ * reintenta la descarga. Un 404 (borrado en otro dispositivo) devuelve `null`.
+ */
+async function fetchServerCopies(ids: string[]): Promise<Map<string, Workout | null>> {
+  const copies = new Map<string, Workout | null>();
+  for (const id of ids) {
+    try {
+      copies.set(id, await api<Workout>(`/workouts/${id}`));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) copies.set(id, null);
+      else throw err;
+    }
+  }
+  return copies;
 }
 
 let inFlight: Promise<SyncRewards | null> | null = null;
@@ -119,13 +149,18 @@ async function runFlush(): Promise<SyncRewards | null> {
         body: { operations: batch },
       });
 
-      const confirmed = new Set(res.results.filter((r) => r.status !== "error").map((r) => r.id));
-      if (confirmed.size > 0) anyConfirmed = true;
-      await confirmSent(sentSeqs, confirmed);
-
       rewards.new_prs.push(...res.rewards.new_prs);
       rewards.new_achievements.push(...res.rewards.new_achievements);
       rewards.streak_delta += res.rewards.streak_delta;
+
+      const applied = new Set(res.results.filter((r) => r.status === "applied").map((r) => r.id));
+      const stale = res.results.filter((r) => r.status === "skipped_stale").map((r) => r.id);
+      if (applied.size + stale.length > 0) anyConfirmed = true;
+      await confirmSent(sentSeqs, applied);
+      // Los obsoletos se confirman despues de traer la copia del servidor: si la
+      // descarga falla, siguen en el outbox y nada se pierde.
+      const staleUpserts = stale.filter((id) => latest.get(id)?.op === "upsert");
+      await confirmSent(sentSeqs, new Set(stale), await fetchServerCopies(staleUpserts));
     }
   } catch {
     // Sin red o token expirado: lo no confirmado sigue en el outbox y se

@@ -70,6 +70,34 @@ export class WorkoutsService {
   }
 
   /**
+   * Documento completo (mismo contrato que `WorkoutSchema`): el cliente lo usa para reemplazar
+   * su copia local cuando el sync responde `skipped_stale`. null si no existe o es de otro usuario.
+   */
+  async getOne(userId: string, id: string): Promise<Workout | null> {
+    const [row] = await this.db.query<Workout>(
+      `select w.id, w.routine_id, w.title, w.notes, w.started_at, w.ended_at, w.client_updated_at,
+              coalesce((
+                select json_agg(json_build_object(
+                         'id', we.id, 'exercise_id', we.exercise_id, 'position', we.position,
+                         'sets', coalesce((
+                           select json_agg(json_build_object(
+                                    'id', ws.id, 'position', ws.position, 'reps', ws.reps,
+                                    'weight_kg', ws.weight_kg::float8, 'rpe', ws.rpe::float8,
+                                    'is_completed', ws.is_completed
+                                  ) order by ws.position)
+                           from public.workout_sets ws where ws.workout_exercise_id = we.id
+                         ), '[]'::json)
+                       ) order by we.position)
+                from public.workout_exercises we where we.workout_id = w.id
+              ), '[]'::json) as exercises
+       from public.workouts w
+       where w.id = $1 and w.user_id = $2`,
+      [id, userId],
+    );
+    return row ?? null;
+  }
+
+  /**
    * Ultimo set completado del usuario para un ejercicio (autocompletar el logger, plan §6.2).
    * null si nunca se registro: la UI cae al peso objetivo de la rutina o vacio.
    */

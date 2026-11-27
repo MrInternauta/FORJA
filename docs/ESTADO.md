@@ -267,6 +267,25 @@ el `.env` a mano, el `PORT=3001` de la API movía también a Next.js fuera de `:
   gana al archivo; el watch de la API reinicia tras editar sin `EADDRINUSE`.
 - Requisito: `forja/.env` debe existir (`cp .env.example .env`); sin él `node` aborta con "not found".
 
+### `skipped_stale` en el cliente: gana la copia del servidor (2026-11-27)
+
+Antes, cuando el sync respondía `skipped_stale` (otro dispositivo guardó una versión más nueva), el cliente limpiaba
+el outbox pero se quedaba con su copia local vieja marcada como `synced`.
+
+- API: `GET /workouts/:id` (ya estaba en el contrato de `arquitectura.md` §4) devuelve el documento completo con la
+  forma de `WorkoutSchema`; 404 si no existe o es de otro usuario.
+- `flushOutbox`: los `applied` se confirman como antes; para los `skipped_stale` primero se descarga la copia del
+  servidor y, en la MISMA transacción de Dexie que borra sus `seq`, reemplaza la local **solo si ya no queda ninguna
+  entrada en el outbox** para ese workout. Una edición (o un descarte) hecha durante el POST o durante la descarga
+  gana: viaja en la siguiente pasada y decide el LWW del servidor.
+- Si la descarga falla por red, esas entradas siguen en el outbox: la siguiente pasada las reenvía (el servidor vuelve a
+  responder `skipped_stale`, sin recompensas) y reintenta. Un 404 (borrado en otro dispositivo) confirma y conserva la
+  copia local.
+- Pruebas: vitest `sync.test.ts` 14/14, con 6 casos nuevos (reemplazo; NO pisa si se editó durante el POST o durante
+  la descarga; NO resucita un descarte; fallo de red sin pérdida y con las recompensas del lote; 404). 6 fallan con el
+  código anterior. E2E API 121/121 (`GET /workouts/:id`: documento igual al último upsert aplicado, 404 ajeno o
+  inexistente, 400 sin uuid) y navegador 36/36.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -277,7 +296,6 @@ el `.env` a mano, el `PORT=3001` de la API movía también a Next.js fuera de `:
 
 - Drag & drop con handle en el builder (hoy flechas).
 - `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
-- `skipped_stale` en cliente: traer copia del servidor y reemplazar la local (TODO en `lib/offline/sync.ts`).
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
