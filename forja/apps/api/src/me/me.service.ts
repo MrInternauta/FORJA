@@ -1,5 +1,5 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { ACHIEVEMENT_RULES } from "@forja/shared";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ACHIEVEMENT_RULES, DEFAULT_TIME_ZONE } from "@forja/shared";
 import type {
   AchievementMetricValues,
   AchievementStatus,
@@ -27,12 +27,14 @@ export class MeService {
       ]);
       if ((taken.rowCount ?? 0) > 0) throw new ConflictException("Ese nombre de usuario ya esta en uso");
 
-      const { rows } = await tx.query<Profile>(
-        `insert into public.profiles (id, username, display_name)
-         values ($1, $2, $3)
-         returning id, username, display_name, avatar_url, role, is_public`,
-        [userId, input.username, input.display_name ?? null],
-      );
+      const { rows } = await tx
+        .query<Profile>(
+          `insert into public.profiles (id, username, display_name, time_zone)
+           values ($1, $2, $3, $4)
+           returning id, username, display_name, avatar_url, role, is_public, time_zone`,
+          [userId, input.username, input.display_name ?? null, input.time_zone ?? DEFAULT_TIME_ZONE],
+        )
+        .catch(zonaDesconocida);
       await tx.query("insert into public.user_stats (user_id) values ($1)", [userId]);
       return rows[0];
     });
@@ -40,7 +42,7 @@ export class MeService {
 
   async getMe(userId: string): Promise<{ profile: Profile; stats: UserStats }> {
     const [profile] = await this.db.query<Profile>(
-      `select id, username, display_name, avatar_url, role, is_public
+      `select id, username, display_name, avatar_url, role, is_public, time_zone
        from public.profiles where id = $1`,
       [userId],
     );
@@ -110,22 +112,39 @@ export class MeService {
 
   async updateMe(
     userId: string,
-    patch: { display_name?: string; avatar_url?: string; is_public?: boolean; weekly_goal?: number },
+    patch: {
+      display_name?: string;
+      avatar_url?: string;
+      is_public?: boolean;
+      weekly_goal?: number;
+      time_zone?: string;
+    },
   ): Promise<void> {
+    // Como weekly_goal, una zona nueva no recalcula la racha guardada: se recalcula en el proximo sync.
     await this.db.tx(async (tx) => {
       if (
         patch.display_name !== undefined ||
         patch.avatar_url !== undefined ||
-        patch.is_public !== undefined
+        patch.is_public !== undefined ||
+        patch.time_zone !== undefined
       ) {
-        await tx.query(
-          `update public.profiles set
-             display_name = coalesce($2, display_name),
-             avatar_url   = coalesce($3, avatar_url),
-             is_public    = coalesce($4, is_public)
-           where id = $1`,
-          [userId, patch.display_name ?? null, patch.avatar_url ?? null, patch.is_public ?? null],
-        );
+        await tx
+          .query(
+            `update public.profiles set
+               display_name = coalesce($2, display_name),
+               avatar_url   = coalesce($3, avatar_url),
+               is_public    = coalesce($4, is_public),
+               time_zone    = coalesce($5, time_zone)
+             where id = $1`,
+            [
+              userId,
+              patch.display_name ?? null,
+              patch.avatar_url ?? null,
+              patch.is_public ?? null,
+              patch.time_zone ?? null,
+            ],
+          )
+          .catch(zonaDesconocida);
       }
       if (patch.weekly_goal !== undefined) {
         await tx.query(
@@ -159,4 +178,15 @@ export class MeService {
       [userId, ids],
     );
   }
+}
+
+/**
+ * El trigger de profiles rechaza con 22023 una zona que Postgres no conoce, aunque
+ * Intl la haya aceptado (p. ej. una zona IANA mas nueva que el tzdata de la BD).
+ */
+function zonaDesconocida(err: unknown): never {
+  if ((err as { code?: string }).code === "22023") {
+    throw new BadRequestException("Zona horaria desconocida: usa un nombre IANA como America/Mexico_City");
+  }
+  throw err;
 }

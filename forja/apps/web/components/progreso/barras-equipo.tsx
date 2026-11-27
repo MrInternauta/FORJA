@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { EQUIPMENT_LABELS } from "@/lib/labels";
-import { rangeStart } from "@/lib/progreso/heatmap";
 import { formatKg, type RangoSemanas } from "@/lib/progreso/volumen";
 
 type Estado = { fase: "cargando" } | { fase: "error" } | { fase: "listo"; points: DistributionPoint[] };
@@ -26,8 +25,8 @@ export function BarrasEquipo({ weeks }: { weeks: RangoSemanas }) {
   useEffect(() => {
     let vigente = true;
     setEstado({ fase: "cargando" });
-    const from = encodeURIComponent(rangeStart(weeks));
-    api<DistributionPoint[]>(`/analytics/distribution?by=equipment&from=${from}`)
+    // `weeks` lo corta la API en el lunes local del usuario, igual que la gráfica de volumen.
+    api<DistributionPoint[]>(`/analytics/distribution?by=equipment&weeks=${weeks}`)
       // La API ordena por volumen; aqui la medida es series.
       .then((points) => vigente && setEstado({ fase: "listo", points: [...points].sort((a, b) => b.sets - a.sets) }))
       .catch(() => vigente && setEstado({ fase: "error" }));

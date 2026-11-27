@@ -1,13 +1,23 @@
 import { z } from "zod";
 import { APP_ROLES } from "../enums";
+import { esZonaHorariaValida } from "../zona-horaria";
 
 export const UsernameSchema = z
   .string()
   .regex(/^[a-z0-9_]{3,30}$/, "3-30 caracteres: minusculas, numeros o guion bajo");
 
+/** Zona IANA en la que se cortan las semanas del usuario (lunes 00:00 local). */
+export const TimeZoneSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(esZonaHorariaValida, "Zona horaria desconocida: usa un nombre IANA como America/Mexico_City");
+
 export const OnboardingSchema = z.object({
   username: UsernameSchema,
   display_name: z.string().min(1).max(60).optional(),
+  /** La del dispositivo; sin ella queda DEFAULT_TIME_ZONE. */
+  time_zone: TimeZoneSchema.optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingSchema>;
 
@@ -18,6 +28,7 @@ export const ProfileSchema = z.object({
   avatar_url: z.string().url().nullable(),
   role: z.enum(APP_ROLES),
   is_public: z.boolean(),
+  time_zone: z.string(),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
 

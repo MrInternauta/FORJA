@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { PoolClient } from "pg";
-import { eligibleAchievements } from "@forja/shared";
+import { DEFAULT_TIME_ZONE, eligibleAchievements } from "@forja/shared";
 import type {
   ExerciseLastSet,
   RewardKind,
@@ -341,22 +341,31 @@ export class WorkoutsService {
     const weeklyGoal = goalRow?.weekly_goal ?? 3;
     const prevStreak = goalRow?.current_streak ?? 0;
 
+    // Las semanas se cortan en el lunes 00:00 de la zona del usuario, como en analytics.
+    const {
+      rows: [zona],
+    } = await tx.query<{ tz: string; current_week: string }>(
+      `select tz, to_char(date_trunc('week', now() at time zone tz), 'YYYY-MM-DD') as current_week
+       from (select coalesce((select time_zone from public.profiles where id = $1), $2) as tz) z`,
+      [userId, DEFAULT_TIME_ZONE],
+    );
+
     // Sesiones terminadas por semana ISO, ultimas 104 semanas.
     const { rows: weeks } = await tx.query<{ week_start: string; sessions: number }>(
-      `select to_char(date_trunc('week', started_at), 'YYYY-MM-DD') as week_start,
+      `select to_char(date_trunc('week', started_at at time zone $2), 'YYYY-MM-DD') as week_start,
               count(*)::int as sessions
        from public.workouts
        where user_id = $1 and ended_at is not null
-         and started_at >= date_trunc('week', now()) - interval '104 weeks'
+         and started_at >= (date_trunc('week', now() at time zone $2) - interval '104 weeks') at time zone $2
        group by 1`,
-      [userId],
+      [userId, zona.tz],
     );
     const byWeek = new Map(weeks.map((r) => [r.week_start, r.sessions]));
 
     // Racha: semanas consecutivas cumplidas terminando en la semana pasada;
     // la semana en curso suma solo si YA se cumplio (no rompe la racha mientras avanza).
     // TODO(gamificacion v2): consumir grace_weeks para puentear una semana fallida.
-    const currentWeek = startOfIsoWeek(new Date());
+    const currentWeek = new Date(`${zona.current_week}T00:00:00Z`);
     let streak = 0;
     if ((byWeek.get(fmt(currentWeek)) ?? 0) >= weeklyGoal) streak++;
     for (let i = 1; i <= 104; i++) {
@@ -420,13 +429,7 @@ export class WorkoutsService {
   }
 }
 
-/* ===== Helpers de semana ISO (lunes) ===== */
-function startOfIsoWeek(d: Date): Date {
-  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = date.getUTCDay() || 7; // domingo=7
-  date.setUTCDate(date.getUTCDate() - (day - 1));
-  return date;
-}
+/* ===== Helpers de semana ISO (lunes, como fecha `YYYY-MM-DD` a medianoche UTC) ===== */
 function addWeeks(d: Date, n: number): Date {
   const out = new Date(d);
   out.setUTCDate(out.getUTCDate() + n * 7);

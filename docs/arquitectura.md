@@ -119,6 +119,7 @@ create table public.profiles (
   avatar_url   text,
   role         app_role not null default 'FREE',
   is_public    boolean not null default false,
+  time_zone    text not null default 'America/Mexico_City', -- IANA; las semanas se cortan en su lunes 00:00 (migración 0006)
   created_at   timestamptz not null default now()
 );
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { OnboardingSchema } from "@forja/shared";
 import { api, ApiError } from "@/lib/api";
+import { zonaDelDispositivo } from "@/lib/zona-horaria";
 import { Button } from "@/components/ui/button";
 
 /** Primer login: crea profiles + user_stats (arquitectura §5, paso 3). */
@@ -21,6 +22,7 @@ export default function OnboardingPage() {
     const parsed = OnboardingSchema.safeParse({
       username: username.trim().toLowerCase(),
       display_name: displayName.trim() || undefined,
+      time_zone: zonaDelDispositivo(),
     });
     if (!parsed.success) {
       setError("El usuario debe tener 3-30 caracteres: minúsculas, números o guion bajo.");

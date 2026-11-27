@@ -236,9 +236,27 @@ terminada ONLINE nunca se celebraban (el resumen de `/sesion` solo muestra PRs y
   racha, bajada sin pendiente), E2E navegador **34/34** (medallas en Hoy sin repetir PRs, nada se repite al recargar,
   PR diferido al reconectar).
 
+### Zona horaria por usuario (2026-11-27)
+
+Las semanas (gráfica de volumen, resumen semanal, distribución por `weeks` y racha) se agrupaban con
+`date_trunc('week')` en la zona de la BD (UTC): una sesión del domingo en la noche en México caía en la semana
+siguiente. Ahora se cortan en el lunes 00:00 de la zona del usuario.
+
+- Migración `0006_zona_horaria.sql`: `profiles.time_zone` (IANA, default `America/Mexico_City`) y un trigger
+  que rechaza zonas que Postgres no reconoce (22023), porque `profiles` también se actualiza directo por RLS.
+- API: `started_at at time zone tz` para agrupar y `<timestamp local> at time zone tz` para los cortes (correcto
+  también con cambio de horario). `GET /analytics/distribution` acepta `weeks` (mismo corte que `/volume`).
+  `PATCH /me` y el onboarding aceptan `time_zone` (Zod con Intl + 400 legible si Postgres no la conoce).
+- Web: el onboarding manda la zona del dispositivo y `AuthGate` la alinea con `PATCH /me` si cambia. Hoy,
+  la gráfica y las tarjetas usan la zona del perfil; Perfil la muestra.
+- Como `weekly_goal`, cambiar la zona no recalcula la racha guardada: se recalcula en el siguiente sync.
+- Pruebas: E2E de API con usuarios CDMX y UTC (volumen, resumen, distribución, racha, trigger por RLS);
+  vitest de `weekKey`/`fillWeeks` con zona.
+
 ## Después (en orden)
 
-1. Pasada manual con VoiceOver/TalkBack y aplicar la migración 0005 en el Supabase de producción.
+1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
+   (antes de desplegar la API que las usa).
 2. Fase 2 (social) y Fase 3 (Stripe + IA) según `docs/arquitectura.md` §7.
 
 ## Deuda técnica registrada
@@ -251,8 +269,6 @@ terminada ONLINE nunca se celebraban (el resumen de `/sesion` solo muestra PRs y
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - Borrado de cuenta: falta borrar `auth.users` vía Admin API (TODO en `me.controller.ts`).
 - CI: paso "push & deploy" comentado hasta decidir hosting.
-- Semanas en UTC: el backend agrupa con `date_trunc('week')` en la zona de la BD (UTC); una sesión del domingo
-  en la noche en México cae en la semana siguiente. Afecta gráfica y racha por igual.
 - La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
   Dexie); aparecen al sincronizar.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
