@@ -1,5 +1,3 @@
-import { weekKey } from "./volumen";
-
 /** Pasos de la rampa `--heat-1..4` (globals.css). 0 = sin series. */
 export const HEAT_STEPS = 4;
 
@@ -22,13 +20,4 @@ export function heatLegend(max: number): { step: number; from: number; to: numbe
     if (from <= to) out.push({ step, from, to });
   }
   return out;
-}
-
-/**
- * Inicio (lunes 00:00 UTC) de la ventana de `weeks` semanas que termina en la
- * actual: el mismo corte que usa GET /analytics/volume, para que las tarjetas cuadren.
- */
-export function rangeStart(weeks: number, now = new Date()): string {
-  const monday = Date.parse(`${weekKey(now)}T00:00:00Z`);
-  return new Date(monday - (weeks - 1) * 7 * 86_400_000).toISOString();
 }

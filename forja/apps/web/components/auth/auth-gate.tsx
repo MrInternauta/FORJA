@@ -6,6 +6,7 @@ import type { Profile, UserStats } from "@forja/shared";
 import { api, ApiError } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase/client";
 import { registerSyncTriggers } from "@/lib/offline/sync";
+import { zonaDelDispositivo } from "@/lib/zona-horaria";
 import { Card } from "@/components/ui/card";
 
 interface MeContextValue {
@@ -33,7 +34,8 @@ type GateState =
  * - Sin sesion de Supabase -> /login.
  * - Con sesion pero sin perfil (GET /me = 404) -> /onboarding.
  * - Con perfil -> expone { profile, stats } via useMe().
- * Tambien escucha SIGNED_OUT para expulsar al instante.
+ * Tambien escucha SIGNED_OUT para expulsar al instante, y alinea `time_zone` con
+ * la del dispositivo: las semanas (racha, graficas) se cortan en el lunes local.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -52,7 +54,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
     try {
       const me = await api<{ profile: Profile; stats: UserStats }>("/me");
-      setState({ status: "ready", profile: me.profile, stats: me.stats });
+      let profile = me.profile;
+      const zona = zonaDelDispositivo();
+      if (zona && zona !== profile.time_zone) {
+        try {
+          await api("/me", { method: "PATCH", body: { time_zone: zona } });
+          profile = { ...profile, time_zone: zona };
+        } catch {
+          /* zona que el servidor no reconoce o sin red: se queda la guardada */
+        }
+      }
+      setState({ status: "ready", profile, stats: me.stats });
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         router.replace("/onboarding");

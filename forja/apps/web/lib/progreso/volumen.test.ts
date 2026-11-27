@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 import { fillWeeks, niceTicks, weekKey, weekOverWeek } from "./volumen";
 
 describe("weekKey", () => {
-  it("devuelve el lunes UTC de la semana ISO", () => {
-    expect(weekKey(new Date("2026-09-20T23:00:00Z"))).toBe("2026-09-14"); // domingo
-    expect(weekKey(new Date("2026-09-21T00:00:00Z"))).toBe("2026-09-21"); // lunes
-    expect(weekKey(new Date("2026-01-01T12:00:00Z"))).toBe("2025-12-29"); // cruza de anio
+  it("devuelve el lunes de la semana ISO", () => {
+    expect(weekKey(new Date("2026-09-20T23:00:00Z"), "UTC")).toBe("2026-09-14"); // domingo
+    expect(weekKey(new Date("2026-09-21T00:00:00Z"), "UTC")).toBe("2026-09-21"); // lunes
+    expect(weekKey(new Date("2026-01-01T12:00:00Z"), "UTC")).toBe("2025-12-29"); // cruza de anio
+  });
+
+  it("corta en el lunes 00:00 local, no en el de UTC", () => {
+    // Domingo 23:30 en CDMX (UTC-6) ya es lunes 05:30 en UTC.
+    expect(weekKey(new Date("2026-09-21T05:30:00Z"), "America/Mexico_City")).toBe("2026-09-14");
+    expect(weekKey(new Date("2026-09-21T05:30:00Z"), "UTC")).toBe("2026-09-21");
+    expect(weekKey(new Date("2026-09-21T06:00:00Z"), "America/Mexico_City")).toBe("2026-09-21");
   });
 });
 
@@ -13,14 +20,20 @@ describe("fillWeeks", () => {
   const now = new Date("2026-09-17T12:00:00Z"); // jueves, semana del 14
 
   it("rellena con ceros las semanas sin sesiones y termina en la actual", () => {
-    const filled = fillWeeks([{ week_start: "2026-08-31", volume_kg: 1300, workouts: 1 }], 4, now);
+    const filled = fillWeeks([{ week_start: "2026-08-31", volume_kg: 1300, workouts: 1 }], 4, "UTC", now);
     expect(filled.map((p) => p.week_start)).toEqual(["2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"]);
     expect(filled.map((p) => p.volume_kg)).toEqual([0, 1300, 0, 0]);
   });
 
   it("descarta semanas fuera del rango pedido", () => {
-    const filled = fillWeeks([{ week_start: "2026-01-05", volume_kg: 999, workouts: 1 }], 4, now);
+    const filled = fillWeeks([{ week_start: "2026-01-05", volume_kg: 999, workouts: 1 }], 4, "UTC", now);
     expect(filled.every((p) => p.volume_kg === 0)).toBe(true);
+  });
+
+  it("la semana actual es la de la zona del usuario", () => {
+    const lunesUtc = new Date("2026-09-21T03:00:00Z"); // aun domingo 21:00 en CDMX
+    expect(fillWeeks([], 1, "UTC", lunesUtc)[0].week_start).toBe("2026-09-21");
+    expect(fillWeeks([], 1, "America/Mexico_City", lunesUtc)[0].week_start).toBe("2026-09-14");
   });
 });
 

@@ -117,6 +117,23 @@ export default function PerfilPage() {
         </Card>
       </section>
 
+      <section aria-labelledby="zona-horaria">
+        <h2
+          id="zona-horaria"
+          className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]"
+        >
+          Zona horaria
+        </h2>
+        <Card>
+          <p className="texto-dato text-sm font-medium text-[var(--fg)]">
+            {profile.time_zone.replace(/_/g, " ")}
+          </p>
+          <p className="text-xs text-[var(--fg-muted)]">
+            Tu semana empieza el lunes a las 00:00 en esta zona. Se toma de tu dispositivo.
+          </p>
+        </Card>
+      </section>
+
       <section aria-labelledby="privacidad">
         <h2
           id="privacidad"

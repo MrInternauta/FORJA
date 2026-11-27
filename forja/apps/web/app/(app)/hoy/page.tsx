@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { useMe } from "@/components/auth/auth-gate";
 import { api } from "@/lib/api";
 import { localDb } from "@/lib/offline/db";
+import { weekKey } from "@/lib/progreso/volumen";
 
 interface WorkoutListItem {
   id: string;
@@ -59,18 +60,8 @@ async function loadWorkouts(): Promise<WorkoutListItem[]> {
   );
 }
 
-/** Lunes 00:00 de la semana actual (misma convencion ISO que el backend). */
-function startOfWeek(): Date {
-  const now = new Date();
-  const day = now.getDay() || 7;
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(now.getDate() - (day - 1));
-  return monday;
-}
-
 export default function HoyPage() {
-  const { stats } = useMe();
+  const { profile, stats } = useMe();
   const [workouts, setWorkouts] = useState<WorkoutListItem[] | null>(null);
   const [suggested, setSuggested] = useState<RoutineSummary | null>(null);
 
@@ -87,11 +78,14 @@ export default function HoyPage() {
     month: "long",
   }).format(new Date());
 
+  // Misma semana que la racha del backend: lunes ISO en la zona del perfil.
   const sessionsThisWeek = useMemo(() => {
     if (!workouts) return 0;
-    const monday = startOfWeek().getTime();
-    return workouts.filter((w) => w.ended_at && new Date(w.started_at).getTime() >= monday).length;
-  }, [workouts]);
+    const current = weekKey(new Date(), profile.time_zone);
+    return workouts.filter(
+      (w) => w.ended_at && weekKey(new Date(w.started_at), profile.time_zone) === current,
+    ).length;
+  }, [workouts, profile.time_zone]);
 
   const last = workouts?.find((w) => w.ended_at) ?? null;
   const restantes = Math.max(stats.weekly_goal - sessionsThisWeek, 0);

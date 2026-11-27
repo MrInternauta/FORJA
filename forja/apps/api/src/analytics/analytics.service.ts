@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { DEFAULT_TIME_ZONE } from "@forja/shared";
 import type {
   DistributionDimension,
   DistributionPoint,
@@ -26,6 +27,9 @@ const epley = (w: string, r: string) =>
 /**
  * Agregaciones de progreso. Todas cuentan solo sets completados de sesiones
  * TERMINADAS (`ended_at` no nulo): una sesion en curso no mueve las graficas.
+ * Las semanas son ISO (lunes) y se cortan en la zona del usuario: `started_at at
+ * time zone tz` da la hora local, y `<timestamp local> at time zone tz` vuelve al
+ * instante (tambien en dias con cambio de horario).
  */
 @Injectable()
 export class AnalyticsService {
@@ -33,8 +37,9 @@ export class AnalyticsService {
 
   /** Volumen (kg x reps de sets completados) por semana ISO. Contrato: GET /analytics/volume. */
   async weeklyVolume(userId: string, weeks: number): Promise<WeeklyVolumePoint[]> {
+    const tz = await this.timeZoneOf(userId);
     return this.db.query<WeeklyVolumePoint>(
-      `select to_char(date_trunc('week', w.started_at), 'YYYY-MM-DD') as week_start,
+      `select to_char(date_trunc('week', w.started_at at time zone $3), 'YYYY-MM-DD') as week_start,
               coalesce(sum(ws.weight_kg * ws.reps) filter (where ws.is_completed), 0)::float8 as volume_kg,
               count(distinct w.id)::int as workouts
        from public.workouts w
@@ -42,18 +47,20 @@ export class AnalyticsService {
        left join public.workout_sets ws on ws.workout_exercise_id = we.id
        where w.user_id = $1
          and w.ended_at is not null
-         and w.started_at >= date_trunc('week', now()) - make_interval(weeks => $2 - 1)
+         and w.started_at >= (date_trunc('week', now() at time zone $3) - make_interval(weeks => $2 - 1)) at time zone $3
        group by 1
        order by 1`,
-      [userId, weeks],
+      [userId, weeks, tz],
     );
   }
 
   /**
    * Volumen y series por grupo muscular primario o por equipo. Contrato:
-   * GET /analytics/distribution. Sin `from`/`to` abarca todo el historial.
+   * GET /analytics/distribution. Sin `from`/`to`/`weeks` abarca todo el historial.
    */
   async distribution(userId: string, q: DistributionQuery): Promise<DistributionPoint[]> {
+    // `weeks` corta en el lunes local, igual que weeklyVolume: las tarjetas de Progreso cuadran.
+    const tz = q.weeks ? await this.timeZoneOf(userId) : null;
     return this.db.query<DistributionPoint>(
       `select ${DIMENSION_COLUMN[q.by]}::text as key,
               coalesce(sum(ws.weight_kg * ws.reps), 0)::float8 as volume_kg,
@@ -67,9 +74,11 @@ export class AnalyticsService {
          and ws.is_completed
          and ($2::timestamptz is null or w.started_at >= $2)
          and ($3::timestamptz is null or w.started_at <= $3)
+         and ($4::int is null
+              or w.started_at >= (date_trunc('week', now() at time zone $5::text) - make_interval(weeks => $4 - 1)) at time zone $5::text)
        group by 1
        order by volume_kg desc, sets desc, key`,
-      [userId, q.from ?? null, q.to ?? null],
+      [userId, q.from ?? null, q.to ?? null, q.weeks ?? null, tz],
     );
   }
 
@@ -135,16 +144,17 @@ export class AnalyticsService {
   }
 
   /**
-   * Resumen de UNA semana ISO (UTC, igual que volumen y racha): sesiones contra
-   * el objetivo, volumen contra la semana anterior, PRs y medallas de la semana.
-   * Por defecto la ultima semana completa ("cada lunes", diseno §8.1).
+   * Resumen de UNA semana ISO (en la zona del usuario, igual que volumen y racha):
+   * sesiones contra el objetivo, volumen contra la semana anterior, PRs y medallas
+   * de la semana. Por defecto la ultima semana completa ("cada lunes", diseno §8.1).
    * Contrato: GET /analytics/weekly-summary.
    */
   async weeklySummary(userId: string, week?: string): Promise<WeeklySummary> {
+    const tz = await this.timeZoneOf(userId);
     const [bounds] = await this.db.query<{ week_start: string; latest: string }>(
-      `select to_char(coalesce($1::date, date_trunc('week', now())::date - 7), 'YYYY-MM-DD') as week_start,
-              to_char(date_trunc('week', now())::date - 7, 'YYYY-MM-DD') as latest`,
-      [week ?? null],
+      `select to_char(coalesce($1::date, date_trunc('week', now() at time zone $2)::date - 7), 'YYYY-MM-DD') as week_start,
+              to_char(date_trunc('week', now() at time zone $2)::date - 7, 'YYYY-MM-DD') as latest`,
+      [week ?? null, tz],
     );
     if (bounds.week_start > bounds.latest) {
       throw new BadRequestException("Esa semana aún no termina: el resumen llega el lunes siguiente");
@@ -156,27 +166,31 @@ export class AnalyticsService {
     );
     if (!stats) throw new NotFoundException("Perfil no encontrado: completa el onboarding");
 
-    // Semana pedida y la anterior en una pasada: [ws - 7d, ws + 7d)
+    // Semana pedida y la anterior en una pasada: [lunes - 7d, lunes + 7d), lunes 00:00 locales.
     const [agg] = await this.db.query<{
       sessions: number;
       volume_kg: number;
       sets: number;
       previous_volume_kg: number;
     }>(
-      `with ws as (select $2::timestamptz as t)
-       select count(distinct w.id) filter (where w.started_at >= ws.t)::int as sessions,
-              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at >= ws.t and s.is_completed), 0)::float8 as volume_kg,
-              count(s.id) filter (where w.started_at >= ws.t and s.is_completed)::int as sets,
-              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at < ws.t and s.is_completed), 0)::float8 as previous_volume_kg
-       from ws
+      `with b as (
+         select ($2::date - 7)::timestamp at time zone $3 as prev,
+                $2::date::timestamp at time zone $3 as ini,
+                ($2::date + 7)::timestamp at time zone $3 as fin
+       )
+       select count(distinct w.id) filter (where w.started_at >= b.ini)::int as sessions,
+              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at >= b.ini and s.is_completed), 0)::float8 as volume_kg,
+              count(s.id) filter (where w.started_at >= b.ini and s.is_completed)::int as sets,
+              coalesce(sum(s.weight_kg * s.reps) filter (where w.started_at < b.ini and s.is_completed), 0)::float8 as previous_volume_kg
+       from b
        join public.workouts w on w.user_id = $1
          and w.ended_at is not null
-         and w.started_at >= ws.t - interval '7 days'
-         and w.started_at < ws.t + interval '7 days'
+         and w.started_at >= b.prev
+         and w.started_at < b.fin
        left join public.workout_exercises we on we.workout_id = w.id
        left join public.workout_sets s on s.workout_exercise_id = we.id
-       group by ws.t`,
-      [userId, `${bounds.week_start}T00:00:00Z`],
+       group by b.ini`,
+      [userId, bounds.week_start, tz],
     );
 
     const prs = await this.db.query<WeeklySummary["prs"][number]>(
@@ -185,9 +199,10 @@ export class AnalyticsService {
        join public.exercises e on e.id = p.exercise_id
        join public.workouts w on w.id = p.workout_id
        where p.user_id = $1
-         and w.started_at >= $2::timestamptz and w.started_at < $2::timestamptz + interval '7 days'
+         and w.started_at >= $2::date::timestamp at time zone $3
+         and w.started_at < ($2::date + 7)::timestamp at time zone $3
        order by e.name`,
-      [userId, `${bounds.week_start}T00:00:00Z`],
+      [userId, bounds.week_start, tz],
     );
 
     // earned_at = momento del sync que la otorgo (cercano al entrenamiento).
@@ -196,9 +211,10 @@ export class AnalyticsService {
        from public.user_achievements ua
        join public.achievements a on a.id = ua.achievement_id
        where ua.user_id = $1
-         and ua.earned_at >= $2::timestamptz and ua.earned_at < $2::timestamptz + interval '7 days'
+         and ua.earned_at >= $2::date::timestamp at time zone $3
+         and ua.earned_at < ($2::date + 7)::timestamp at time zone $3
        order by a.sort_order`,
-      [userId, `${bounds.week_start}T00:00:00Z`],
+      [userId, bounds.week_start, tz],
     );
 
     const sessions = agg?.sessions ?? 0;
@@ -215,5 +231,14 @@ export class AnalyticsService {
       current_streak: stats.current_streak,
       is_latest: bounds.week_start === bounds.latest,
     };
+  }
+
+  /** Zona IANA del usuario (`profiles.time_zone`): las semanas se cortan en SU lunes 00:00, no en el de UTC. */
+  private async timeZoneOf(userId: string): Promise<string> {
+    const [row] = await this.db.query<{ time_zone: string }>(
+      "select time_zone from public.profiles where id = $1",
+      [userId],
+    );
+    return row?.time_zone ?? DEFAULT_TIME_ZONE;
   }
 }

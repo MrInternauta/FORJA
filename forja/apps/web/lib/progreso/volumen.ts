@@ -6,12 +6,26 @@ export type RangoSemanas = (typeof RANGOS_SEMANAS)[number];
 
 const DAY_MS = 86_400_000;
 
+/** Un formateador por zona: crearlos es lo caro y Hoy calcula la semana de cada sesion. */
+const fechaFormat = new Map<string, Intl.DateTimeFormat>();
+
+/** Fecha local `YYYY-MM-DD` de `date` en `timeZone`. */
+function fechaEnZona(date: Date, timeZone: string): string {
+  let format = fechaFormat.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    fechaFormat.set(timeZone, format);
+  }
+  const parts = Object.fromEntries(format.formatToParts(date).map((p) => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 /**
- * Lunes 00:00 UTC de la semana ISO de `date`, como `YYYY-MM-DD`. Debe coincidir
- * con `date_trunc('week', ...)` del backend, que agrupa en UTC.
+ * Lunes de la semana ISO de `date` en la zona del usuario, como `YYYY-MM-DD`. Debe
+ * coincidir con `date_trunc('week', started_at at time zone ...)` del backend.
  */
-export function weekKey(date: Date): string {
-  const utc = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+export function weekKey(date: Date, timeZone: string): string {
+  const utc = Date.parse(`${fechaEnZona(date, timeZone)}T00:00:00Z`);
   const day = new Date(utc).getUTCDay() || 7;
   return new Date(utc - (day - 1) * DAY_MS).toISOString().slice(0, 10);
 }
@@ -20,9 +34,14 @@ export function weekKey(date: Date): string {
  * La API solo devuelve semanas con sesiones; la grafica necesita todas.
  * Devuelve exactamente `weeks` puntos, de la mas antigua a la actual, con ceros.
  */
-export function fillWeeks(points: WeeklyVolumePoint[], weeks: number, now = new Date()): WeeklyVolumePoint[] {
+export function fillWeeks(
+  points: WeeklyVolumePoint[],
+  weeks: number,
+  timeZone: string,
+  now = new Date(),
+): WeeklyVolumePoint[] {
   const byWeek = new Map(points.map((p) => [p.week_start, p]));
-  const current = Date.parse(`${weekKey(now)}T00:00:00Z`);
+  const current = Date.parse(`${weekKey(now, timeZone)}T00:00:00Z`);
   return Array.from({ length: weeks }, (_, i) => {
     const key = new Date(current - (weeks - 1 - i) * 7 * DAY_MS).toISOString().slice(0, 10);
     return byWeek.get(key) ?? { week_start: key, volume_kg: 0, workouts: 0 };

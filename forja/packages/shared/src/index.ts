@@ -1,6 +1,7 @@
 export * from "./enums";
 export * from "./limits";
 export * from "./achievements";
+export * from "./zona-horaria";
 export * from "./schemas/profile";
 export * from "./schemas/exercise";
 export * from "./schemas/routine";
