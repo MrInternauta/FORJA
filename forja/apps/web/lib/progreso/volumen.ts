@@ -1,4 +1,4 @@
-import type { WeeklyVolumePoint } from "@forja/shared";
+import type { WeeklyVolumePoint, Workout } from "@forja/shared";
 
 /** Rangos del selector de Progreso (wireframe §6.2: [4s] [12s]). */
 export const RANGOS_SEMANAS = [4, 12] as const;
@@ -46,6 +46,41 @@ export function fillWeeks(
     const key = new Date(current - (weeks - 1 - i) * 7 * DAY_MS).toISOString().slice(0, 10);
     return byWeek.get(key) ?? { week_start: key, volume_kg: 0, workouts: 0 };
   });
+}
+
+/** Lo que una sesion local aporta a la grafica: su semana sale de `started_at`, como en el backend. */
+export interface VolumenLocal {
+  started_at: string;
+  volume_kg: number;
+}
+
+/** kg x reps de las series completadas (mismo calculo que `GET /analytics/volume`). */
+export function volumenDeSesion(workout: Workout): number {
+  return workout.exercises
+    .flatMap((ex) => ex.sets)
+    .filter((st) => st.is_completed)
+    .reduce((sum, st) => sum + st.weight_kg * st.reps, 0);
+}
+
+/**
+ * Suma a los puntos de la API las sesiones locales que la red aun no cuenta
+ * (cada una en la semana de su `started_at` en la zona del usuario). Antes de
+ * `fillWeeks`, que descarta las semanas fuera del rango.
+ */
+export function sumarVolumenLocal(
+  points: WeeklyVolumePoint[],
+  locales: VolumenLocal[],
+  timeZone: string,
+): WeeklyVolumePoint[] {
+  const byWeek = new Map(points.map((p) => [p.week_start, { ...p }]));
+  for (const w of locales) {
+    const key = weekKey(new Date(w.started_at), timeZone);
+    const point = byWeek.get(key) ?? { week_start: key, volume_kg: 0, workouts: 0 };
+    point.volume_kg += w.volume_kg;
+    point.workouts += 1;
+    byWeek.set(key, point);
+  }
+  return [...byWeek.values()].sort((a, b) => a.week_start.localeCompare(b.week_start));
 }
 
 /**

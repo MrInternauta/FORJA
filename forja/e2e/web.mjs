@@ -162,6 +162,11 @@ try {
   await sleep(2500);
   check("tras recargar no se repite ninguna celebración", !(await page.$('[role="dialog"]')));
 
+  section("Progreso: volumen semanal");
+  await page.goto(`${WEB}/progreso`, { waitUntil: "networkidle0" }); // tambien deja /progreso en el cache del SW
+  await waitText(/esta semana/);
+  check("online: volumen de la semana 1,380 kg", /1,380\s*kg\s*esta semana/.test(await text()), (await text()).slice(0, 300));
+
   section("Sesión con corte de red a mitad");
   await page.goto(`${WEB}/entrenar`, { waitUntil: "networkidle0" });
   await clickLabel(`Empezar ${ROUTINE_NAME}`);
@@ -210,6 +215,13 @@ try {
   check("offline: Hoy carga", /Empezar|ÚLTIMA SESIÓN/i.test(t), t.slice(0, 200));
   check("offline: BarraSync en singular (1 sesión guardada aquí)", /Sin conexión · 1 sesión guardada aquí/.test(t), t.slice(0, 120));
 
+  // La grafica viene del cache del SW (sin la sesion nueva): se le suma la sesion local sin sincronizar.
+  await clickText("Progreso");
+  await waitText(/esta semana|No pudimos cargar/).catch(() => {});
+  await shot("04b-offline-progreso");
+  t = await text();
+  check("offline: Progreso suma la sesión sin sincronizar (1,380 + 1,400 = 2,780 kg)", /2,780\s*kg\s*esta semana/.test(t), t.slice(0, 300));
+
   section("Reconexión");
   await page.setOfflineMode(false);
   local = await waitFor(async () => ((await idb()).outbox.length === 0 ? true : null), 20000);
@@ -226,6 +238,9 @@ try {
   check("stats: 2 sesiones, 2780 kg", stats.total_workouts === 2 && near(stats.total_volume_kg, 2780), stats);
   await sleep(1500);
   check("BarraSync desaparece cuando no hay nada que decir", !/Sin conexión|Sincronizando|pendiente/i.test(await text()));
+  await page.goto(`${WEB}/progreso`, { waitUntil: "networkidle0" });
+  await waitText(/esta semana/);
+  check("tras sincronizar: Progreso 2,780 kg, sin contar la sesión dos veces", /2,780\s*kg\s*esta semana/.test(await text()), (await text()).slice(0, 300));
 
   section("Zona horaria del dispositivo");
   // El perfil nació sin zona (America/Mexico_City); un dispositivo en Bogotá la alinea al abrir la app.
