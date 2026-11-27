@@ -394,10 +394,11 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 ### Despliegue: Vercel + migraciones y humo en Actions (2026-11-27)
 
 - Despliegue: integración Git de Vercel, dos proyectos (`web` con raíz `forja/apps/web`, `api` con raíz
-  `forja/apps/api`). Preview por PR y producción al mergear a `main`. Producción:
+  `forja/apps/api`). Un solo entorno: producción, al mergear a `main`. Sin previews
+  (`git.deploymentEnabled` `{"**": false, "main": true}` en el `vercel.json` de cada app). Producción:
   `https://web-ten-khaki-86.vercel.app` y `https://api-six-tau-49.vercel.app/v1`.
-- Deployment Protection pasó de "todas" a solo previews: producción es pública; los previews siguen tras Vercel
-  Authentication.
+- Deployment Protection solo para previews (no se generan): producción es pública. Se borraron los deployments
+  de preview viejos y los entornos de GitHub `Preview – web`/`Preview – api`/`Production` (el de agosto).
 - `ci.yml`, job `migrate` (solo `push` a `main`, después de `verify`): `supabase db push --linked` contra el proyecto
   `forja` de Supabase. Se activa con la variable `SUPABASE_PROJECT_REF` y el secreto `SUPABASE_ACCESS_TOKEN`; sin la
   variable se salta. Vercel no espera a Actions, así que toda migración debe ser aditiva (compatible con la API
