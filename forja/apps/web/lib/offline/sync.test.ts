@@ -337,6 +337,34 @@ describe("flushOutbox: skipped_stale (LWW, gana el servidor)", () => {
     expect((await localDb.outbox.toArray()).map((e) => e.op)).toEqual(["delete"]);
   });
 
+  it("NO pisa lo que otra pestana edito y ya sincronizo durante la descarga", async () => {
+    const otherTab = makeWorkout({ title: "Desde otra pestana", client_updated_at: "2026-07-01T12:30:00.000Z" });
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      // La otra pestana comparte Dexie: su flush ya confirmo y limpio su entrada.
+      await localDb.workouts.put({ ...otherTab, sync_status: "synced" });
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...otherTab, sync_status: "synced" });
+    expect(await localDb.outbox.count()).toBe(0);
+  });
+
+  it("NO resucita lo que otra pestana descarto y ya sincronizo durante la descarga", async () => {
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      await localDb.workouts.delete(WORKOUT_ID);
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toBeUndefined();
+    expect(await localDb.outbox.count()).toBe(0);
+  });
+
   it("si la descarga falla, nada se pierde: sigue en el outbox y el siguiente flush la reintenta", async () => {
     const OTHER_ID = "55555555-5555-4555-8555-555555555555";
     const otherRewards = { new_prs: [], new_achievements: ["primera_sesion"], streak_delta: 1 };

@@ -279,11 +279,14 @@ el outbox pero se quedaba con su copia local vieja marcada como `synced`.
   entrada en el outbox** para ese workout. Una edición (o un descarte) hecha durante el POST o durante la descarga
   gana: viaja en la siguiente pasada y decide el LWW del servidor.
 - Si la descarga falla por red, esas entradas siguen en el outbox: la siguiente pasada las reenvía (el servidor vuelve a
-  responder `skipped_stale`, sin recompensas) y reintenta. Un 404 (borrado en otro dispositivo) confirma y conserva la
-  copia local.
-- Pruebas: vitest `sync.test.ts` 14/14, con 6 casos nuevos (reemplazo; NO pisa si se editó durante el POST o durante
-  la descarga; NO resucita un descarte; fallo de red sin pérdida y con las recompensas del lote; 404). 6 fallan con el
-  código anterior. E2E API 121/121 (`GET /workouts/:id`: documento igual al último upsert aplicado, 404 ajeno o
+  responder `skipped_stale`, sin recompensas) y reintenta. Lo mismo si la copia es MÁS VIEJA que la enviada (la cache
+  NetworkFirst del SW sin red): `skipped_stale` garantiza que la real es >= la enviada. Un 404 (borrado en otro
+  dispositivo) confirma y conserva la copia local.
+- Varias pestañas comparten Dexie pero no el `inFlight`: tampoco se reemplaza si la local ya no es la que viajó
+  (otra pestaña la editó o la descartó y ya la sincronizó durante la descarga).
+- Pruebas: vitest `sync.test.ts` 17/17, con 9 casos nuevos (reemplazo; NO pisa si se editó durante el POST o durante
+  la descarga; NO resucita un descarte; NO acepta una copia vieja de cache; NO pisa ni resucita lo que otra pestaña ya
+  sincronizó; fallo de red sin pérdida y con las recompensas del lote; 404). E2E API 121/121 (`GET /workouts/:id`: documento igual al último upsert aplicado, 404 ajeno o
   inexistente, 400 sin uuid) y navegador 36/36.
 
 ## Después (en orden)

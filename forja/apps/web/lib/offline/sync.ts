@@ -35,11 +35,14 @@ async function publishPending(): Promise<number> {
  * servidor). Reemplazan la local SOLO si ya no queda nada en el outbox para ese
  * workout; una intencion local pendiente viaja en la siguiente pasada y el LWW
  * del servidor decide. `null` = el servidor ya no lo tiene: se conserva la local.
+ * Tampoco si la local ya no es la que viajo (`sentAt`): otra pestana la edito o la
+ * descarto y ya la sincronizo durante la descarga.
  */
 async function confirmSent(
   sentSeqs: Map<string, number[]>,
   confirmedIds: Set<string>,
   serverCopies: Map<string, Workout | null> = new Map(),
+  sentAt: Map<string, string> = new Map(),
 ): Promise<void> {
   const seqsToDelete: number[] = [];
   for (const id of confirmedIds) {
@@ -53,7 +56,10 @@ async function confirmSent(
       const stillQueued = await localDb.outbox.where("workout_id").equals(id).count();
       if (stillQueued > 0) continue;
       const serverCopy = serverCopies.get(id);
-      if (serverCopy) {
+      const local = serverCopy ? await localDb.workouts.get(id) : undefined;
+      const localIsSent =
+        local !== undefined && Date.parse(local.client_updated_at) <= Date.parse(sentAt.get(id) ?? "");
+      if (serverCopy && localIsSent) {
         await localDb.workouts.put({ ...serverCopy, sync_status: "synced" });
       } else {
         await localDb.workouts.update(id, { sync_status: "synced" });
@@ -174,7 +180,7 @@ async function runFlush(): Promise<SyncRewards | null> {
         const sent = latest.get(id);
         if (sent?.op === "upsert") staleUpserts.set(id, sent.client_updated_at);
       }
-      await confirmSent(sentSeqs, new Set(stale), await fetchServerCopies(staleUpserts));
+      await confirmSent(sentSeqs, new Set(stale), await fetchServerCopies(staleUpserts), staleUpserts);
     }
   } catch {
     // Sin red o token expirado: lo no confirmado sigue en el outbox y se
