@@ -115,6 +115,14 @@ try {
     return !!r?.active;
   });
   check("service worker activo", swReady);
+  const loginHtml = await (await fetch(`${WEB}/login`)).text();
+  const splashLinks = [...loginHtml.matchAll(/rel="apple-touch-startup-image"/g)].length;
+  check("/login declara 32 apple-touch-startup-image", splashLinks === 32, splashLinks);
+  const splashHref = loginHtml.match(/href="(\/splash\/[^"]+)"/)?.[1];
+  const splashRes = splashHref ? await fetch(`${WEB}${splashHref}`) : null;
+  check("la primera splash devuelve 200 image/png",
+    splashRes?.status === 200 && splashRes.headers.get("content-type") === "image/png",
+    `${splashRes?.status} ${splashRes?.headers.get("content-type")}`);
   // Precalentar el caché del SW con las rutas que se usarán offline
   for (const p of ["/entrenar", "/hoy", "/sesion"]) await page.goto(`${WEB}${p}`, { waitUntil: "networkidle0" });
 
@@ -270,6 +278,70 @@ try {
   check("AuthGate guarda la zona del dispositivo en el perfil", !!zonaAlineada, (await api("GET", "/me")).body.profile.time_zone);
   check("Perfil muestra la zona", /America\/Bogota/.test(await text()), (await text()).slice(0, 300));
   await shot("06-perfil-zona");
+
+  section("Builder: reordenar con handle y flechas");
+  const DEAD = cat.find((e) => e.name === "Peso muerto");
+  const rutinaOrden = await api("POST", "/routines", {
+    name: "E2E Orden",
+    exercises: [
+      { exercise_id: BENCH.id, position: 1, sets: [{ position: 1 }] },
+      { exercise_id: SQUAT.id, position: 2, sets: [{ position: 1 }] },
+      { exercise_id: DEAD.id, position: 3, sets: [{ position: 1 }] },
+    ],
+  });
+  const RID = rutinaOrden.body.id;
+  const ordenLista = () =>
+    page.$$eval('[aria-label$="para reordenar"]', (els) =>
+      els.map((b) => b.getAttribute("aria-label").replace(/^Arrastrar | para reordenar$/g, "")),
+    );
+  await page.goto(`${WEB}/entrenar/${RID}/editar`, { waitUntil: "networkidle0" });
+  await waitText(/Peso muerto/);
+  check("builder: orden inicial [banca, sentadilla, peso muerto]",
+    JSON.stringify(await ordenLista()) === JSON.stringify(["Press banca", "Sentadilla trasera", "Peso muerto"]),
+    await ordenLista());
+  const handle = await page.waitForSelector('[aria-label="Arrastrar Peso muerto para reordenar"]', { visible: true });
+  // La 3ª tarjeta puede quedar bajo la barra fija de "Guardar": centrarla antes de arrastrar.
+  await handle.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await sleep(300);
+  const hb = await handle.boundingBox();
+  const cx = hb.x + hb.width / 2;
+  let py = hb.y + hb.height / 2;
+  await page.mouse.move(cx, py);
+  await page.mouse.down();
+  for (let guard = 0; guard < 40; guard++) {
+    const firstMid = await page.$eval("li[data-key]", (li) => {
+      const r = li.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    if (py <= firstMid + 2) break;
+    py = Math.max(firstMid - 8, py - 40);
+    await page.mouse.move(cx, py, { steps: 3 });
+    await sleep(120);
+  }
+  await page.mouse.up();
+  await sleep(300);
+  check("arrastre: peso muerto queda primero en la lista",
+    JSON.stringify(await ordenLista()) === JSON.stringify(["Peso muerto", "Press banca", "Sentadilla trasera"]),
+    await ordenLista());
+  await shot("07-builder-drag");
+  await clickText("Guardar rutina");
+  await page.waitForFunction(() => location.pathname === "/entrenar", { timeout: 15000 });
+  let saved = (await api("GET", `/routines/${RID}`)).body;
+  check("API: orden guardado [peso muerto, banca, sentadilla]",
+    saved.exercises.map((e) => e.exercise_name).join("|") === "Peso muerto|Press banca|Sentadilla trasera",
+    saved.exercises.map((e) => e.exercise_name));
+
+  await page.goto(`${WEB}/entrenar/${RID}/editar`, { waitUntil: "networkidle0" });
+  await waitText(/Peso muerto/);
+  await clickLabel("Bajar Peso muerto");
+  await sleep(300);
+  await clickText("Guardar rutina");
+  await page.waitForFunction(() => location.pathname === "/entrenar", { timeout: 15000 });
+  saved = (await api("GET", `/routines/${RID}`)).body;
+  check("flecha 'Bajar' sigue funcionando: [banca, peso muerto, sentadilla]",
+    saved.exercises.map((e) => e.exercise_name).join("|") === "Press banca|Peso muerto|Sentadilla trasera",
+    saved.exercises.map((e) => e.exercise_name));
+
   check("sin errores de JS en la página", pageErrors.length === 0, pageErrors);
 } catch (e) {
   // Un paso que no se pudo dar (p. ej. pantalla en blanco) cuenta como falla y no oculta el resumen.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Plus, Search, X } from "lucide-react";
 import type { Exercise, MuscleGroup } from "@forja/shared";
 import { MUSCLE_GROUPS } from "@forja/shared";
@@ -9,8 +10,12 @@ import { EQUIPMENT_LABELS, MUSCLE_LABELS } from "@/lib/labels";
 import { useMe } from "@/components/auth/auth-gate";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { NuevoEjercicioForm } from "@/components/catalogo/nuevo-ejercicio-form";
 import { Dialogo } from "@/components/ui/dialogo";
+
+// Solo ADMIN lo abre: carga diferida para no bajar zod (su validación) en el catálogo de todos.
+const NuevoEjercicioForm = dynamic(() =>
+  import("@/components/catalogo/nuevo-ejercicio-form").then((m) => m.NuevoEjercicioForm),
+);
 
 interface ListResponse {
   items: Exercise[];

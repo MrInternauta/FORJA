@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { splashStartupImages } from "@/lib/pwa/splash";
 import "./globals.css";
 
 // Autohospedadas por next/font (se descargan en build): sin peticiones a Google en
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   title: { default: "FORJA", template: "%s · FORJA" },
   description: "Registro y seguimiento de entrenamientos. Forja tu progreso.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FORJA" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FORJA", startupImage: splashStartupImages() },
   // iOS ignora los iconos del manifest para la pantalla de inicio.
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],

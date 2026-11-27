@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2, X } from "lucide-react";
 import type { CreateRoutineInput, Exercise, MuscleGroup, RoutineDetail } from "@forja/shared";
 import { CreateRoutineSchema } from "@forja/shared";
 import { api, ApiError } from "@/lib/api";
 import { MUSCLE_LABELS } from "@/lib/labels";
+import { moveItem, targetIndex } from "@/lib/rutinas/reordenar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ExercisePicker } from "./exercise-picker";
@@ -57,8 +58,8 @@ const num = (v: string): number | null => {
 };
 
 /**
- * Builder de plantillas (plan §6.2, semanas 5-6). Reordenar con flechas;
- * TODO(UX): drag & drop con handle cuando entre una lib de dnd (post-MVP visual).
+ * Builder de plantillas (plan §6.2, semanas 5-6). Reordenar con el handle de
+ * arrastre (Pointer Events) o con las flechas (teclado / lector de pantalla).
  */
 export function RoutineBuilder({ routineId, initial }: Props) {
   const router = useRouter();
@@ -70,6 +71,14 @@ export function RoutineBuilder({ routineId, initial }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [avisoOrden, setAvisoOrden] = useState("");
+  const ulRef = useRef<HTMLUListElement>(null);
+  const exRef = useRef(exercises);
+  exRef.current = exercises;
+  const dragRef = useRef<{ key: string; pointerId: number; startIndex: number; lastY: number } | null>(null);
+  const rafRef = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   function addExercise(ex: Exercise) {
     setExercises((prev) => [
@@ -90,14 +99,78 @@ export function RoutineBuilder({ routineId, initial }: Props) {
     setExercises((prev) => prev.map((ex) => (ex.key === key ? fn(ex) : ex)));
 
   function move(key: string, dir: -1 | 1) {
+    const prev = exRef.current;
+    const i = prev.findIndex((e) => e.key === key);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= prev.length) return;
+    setExercises((p) => moveItem(p, i, j));
+    setAvisoOrden(`${prev[i].name}: posición ${j + 1} de ${prev.length}`);
+  }
+
+  /* Arrastre con handle: reordena en vivo comparando el puntero con el punto
+     medio de las demás tarjetas, y hace scroll al acercarse a los bordes. */
+  function reordenaPorPuntero(y: number) {
+    const drag = dragRef.current;
+    const ul = ulRef.current;
+    if (!drag || !ul) return;
+    const mids: number[] = [];
+    for (const li of ul.children) {
+      if ((li as HTMLElement).dataset.key === drag.key) continue;
+      const r = li.getBoundingClientRect();
+      mids.push(r.top + r.height / 2);
+    }
+    const to = targetIndex(mids, y);
     setExercises((prev) => {
-      const i = prev.findIndex((e) => e.key === key);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
+      const i = prev.findIndex((e) => e.key === drag.key);
+      return i < 0 ? prev : moveItem(prev, i, to);
     });
+  }
+
+  function bucleScroll() {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const y = drag.lastY;
+    if (y < 80) {
+      window.scrollBy(0, -8);
+      reordenaPorPuntero(y);
+    } else if (y > window.innerHeight - 160) {
+      window.scrollBy(0, 8);
+      reordenaPorPuntero(y);
+    }
+    rafRef.current = requestAnimationFrame(bucleScroll);
+  }
+
+  function onHandleDown(e: React.PointerEvent<HTMLButtonElement>, key: string) {
+    if (e.button !== 0 || dragRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      key,
+      pointerId: e.pointerId,
+      startIndex: exRef.current.findIndex((x) => x.key === key),
+      lastY: e.clientY,
+    };
+    setDragKey(key);
+    rafRef.current = requestAnimationFrame(bucleScroll);
+  }
+
+  function onHandleMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.lastY = e.clientY;
+    reordenaPorPuntero(e.clientY);
+  }
+
+  function endDrag() {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    cancelAnimationFrame(rafRef.current);
+    setDragKey(null);
+    const list = exRef.current;
+    const i = list.findIndex((e) => e.key === drag.key);
+    if (i >= 0 && i !== drag.startIndex) {
+      setAvisoOrden(`${list[i].name}: posición ${i + 1} de ${list.length}`);
+    }
   }
 
   function toPayload(): CreateRoutineInput | null {
@@ -211,12 +284,28 @@ export function RoutineBuilder({ routineId, initial }: Props) {
         </Card>
       )}
 
-      <ul className="flex flex-col gap-4">
+      <ul ref={ulRef} className={`flex flex-col gap-4 ${dragKey ? "select-none" : ""}`}>
         {exercises.map((ex, i) => (
-          <li key={ex.key}>
-            <Card className="flex flex-col gap-3">
+          <li key={ex.key} data-key={ex.key}>
+            <Card
+              className={`flex flex-col gap-3 ${ex.key === dragKey ? "border-[var(--accent)] opacity-90 shadow-lg" : ""}`}
+            >
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                <button
+                  type="button"
+                  onPointerDown={(e) => onHandleDown(e, ex.key)}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  onLostPointerCapture={endDrag}
+                  tabIndex={-1}
+                  aria-label={`Arrastrar ${ex.name} para reordenar`}
+                  style={{ touchAction: "none" }}
+                  className="superficie flex h-11 w-11 shrink-0 cursor-grab items-center justify-center text-[var(--fg-muted)] active:cursor-grabbing"
+                >
+                  <GripVertical size={16} strokeWidth={2} />
+                </button>
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-[var(--fg)]">
                     <span className="texto-dato mr-2 text-[var(--fg-muted)]">{i + 1}</span>
                     {ex.name}
@@ -307,6 +396,11 @@ export function RoutineBuilder({ routineId, initial }: Props) {
       </Button>
 
       {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+
+      {/* Aviso de la nueva posicion al reordenar (flechas o arrastre) */}
+      <p aria-live="polite" className="sr-only">
+        {avisoOrden}
+      </p>
 
       {/* Guardar fijo inferior (wireframe §6.2) */}
       <div

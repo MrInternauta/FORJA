@@ -355,6 +355,42 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
   la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
 
+### Builder de rutinas: reordenar arrastrando del handle (2026-11-27)
+
+- Handle `GripVertical` en cada tarjeta del builder, con Pointer Events nativos (sin librería de dnd: no suma
+  bundle). Reordena en vivo comparando el puntero con el punto medio de las demás tarjetas y hace scroll solo cerca
+  de los bordes (abajo deja libre la barra fija de Guardar + tab bar). La tarjeta arrastrada se marca con borde
+  `--accent` plano.
+- Las flechas Subir/Bajar se quedan: son la alternativa de teclado, lector de pantalla y un solo puntero (WCAG
+  2.5.7). Por eso el handle no entra en el orden de Tab. Una región `aria-live` anuncia "Nombre: posición X de N"
+  tras mover con flechas o al soltar.
+- Helpers puros `moveItem`/`targetIndex` en `lib/rutinas/reordenar.ts`. Pruebas: vitest +9 (76/76). E2E navegador
+  **45/45**: arrastrar la 3ª tarjeta al principio, guardar y comprobar el orden por API; la flecha "Bajar" sigue
+  funcionando.
+
+### Splash screens de iOS generadas en build (2026-11-27)
+
+- `lib/pwa/splash.ts`: 14 tamaños de iPhone (solo vertical) y 9 de iPad (vertical y horizontal) = 32 variantes,
+  cada una con su media query exacta (`device-width/height` en CSS px de vertical + `-webkit-device-pixel-ratio` +
+  `orientation`). `appleWebApp.startupImage` en `app/layout.tsx` emite los 32 `<link rel="apple-touch-startup-image">`.
+- `app/splash/[slug]/route.tsx`: `ImageResponse` de `next/og` prerenderizado en build (`force-static`,
+  `generateStaticParams`, `dynamicParams = false` ⇒ 404 para otros tamaños). Fondo `#0c0e12` (oscuro es el único
+  tema al arrancar) e `icon-512.png` centrado al 40 % del lado corto, sin texto. Ningún PNG versionado.
+- Pruebas: vitest `splash.test.ts` (6). E2E navegador: `/login` declara 32 enlaces y la primera splash responde
+  200 `image/png`.
+- Para añadir un dispositivo nuevo basta con agregarlo a `SPLASH_DEVICES`.
+
+### zod fuera de las pantallas que no validan (2026-11-27)
+
+- Causa: `dist-esm/package.json` (el marcador `type: module` que escribe `scripts/write-esm-marker.mjs`) es el
+  package.json más cercano a los módulos ESM de `@forja/shared`, y webpack lee `sideEffects` de ahí, no de la raíz
+  del paquete. Sin `sideEffects: false` en el marcador, importar un enum o `PLAN_LIMITS` arrastraba todos los esquemas
+  y zod. El marcador ahora lleva `sideEffects: false`.
+- `NuevoEjercicioForm` (solo ADMIN) se carga con `next/dynamic` en `/ejercicios`.
+- First Load JS: `/ejercicios` 219 → 204 kB, `/entrenar` 220 → 205 kB, `/sesion` 223 → 209 kB; `/onboarding` y el
+  builder de rutinas (las que validan con zod en el cliente) siguen llevándolo. Ya no hace falta preferir
+  `import type` por miedo a zod: importar valores de `@forja/shared` solo trae lo que se usa.
+
 ### Timer de descanso con hora límite y aviso desde el Service Worker (2026-11-27)
 
 - `TimerDescanso` cuenta contra una hora límite (`endsAt`) en vez de restar 1 cada segundo: con la pestaña oculta o
@@ -380,8 +416,4 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 
 ## Deuda técnica registrada
 
-- Drag & drop con handle en el builder (hoy flechas).
-- Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
-- Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
-  `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.
