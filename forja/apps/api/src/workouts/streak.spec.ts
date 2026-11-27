@@ -51,4 +51,11 @@ describe("computeStreak", () => {
     // 5 cumplidas (1 gracia), 1 puenteada, 3 cumplidas = 8 cumplidas => 2 ganadas - 1 usada.
     expect(computeStreak(weeks(9, 8, 7, 6, 5, 3, 2, 1), CURRENT, 1)).toEqual({ streak: 8, graceWeeks: 1 });
   });
+
+  it("la gracia acumulada se topa en 2", () => {
+    const doce = Array.from({ length: 12 }, (_, i) => 12 - i);
+    expect(computeStreak(weeks(...doce), CURRENT, 1)).toEqual({ streak: 12, graceWeeks: 2 });
+    // Con el tope, tras gastar una se vuelve a ganar a las 4 cumplidas siguientes.
+    expect(computeStreak(weeks(14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1), CURRENT, 1)).toEqual({ streak: 13, graceWeeks: 1 });
+  });
 });

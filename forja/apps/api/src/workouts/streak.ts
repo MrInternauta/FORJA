@@ -2,13 +2,15 @@
 export const STREAK_WINDOW_WEEKS = 104;
 /** Diseno §8: 1 semana de gracia ganada cada 4 semanas cumplidas (como un streak freeze, pero ganado). */
 export const WEEKS_PER_GRACE = 4;
+/** Tope de semanas de gracia acumuladas: una semana cumplida nunca sube la gracia por encima de 2. */
+export const MAX_GRACE_WEEKS = 2;
 
 /**
  * Racha semanal y semanas de gracia, recorriendo la ventana de la mas vieja a la
  * actual. `sessionsByWeek` usa el lunes local `YYYY-MM-DD`; `currentWeek` es el
  * lunes de la semana en curso a medianoche UTC.
  *
- * - Semana cumplida: suma a la racha; cada 4 cumplidas de la racha, +1 gracia.
+ * - Semana cumplida: suma a la racha; cada 4 cumplidas de la racha, +1 gracia (tope 2).
  * - Semana pasada sin cumplir: si hay gracia, se consume y la racha sigue (la
  *   semana puenteada no suma); si no, la racha vuelve a 0.
  * - La semana en curso solo suma si YA se cumplio: nunca rompe ni consume gracia.
@@ -24,7 +26,7 @@ export function computeStreak(
   const meet = () => {
     streak++;
     metInStreak++;
-    if (metInStreak % WEEKS_PER_GRACE === 0) grace++;
+    if (metInStreak % WEEKS_PER_GRACE === 0) grace = Math.min(grace + 1, MAX_GRACE_WEEKS);
   };
 
   for (let i = STREAK_WINDOW_WEEKS; i >= 1; i--) {

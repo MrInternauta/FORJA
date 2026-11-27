@@ -371,6 +371,12 @@ r = await call(G.token, "POST", "/sync/workouts", { operations: [upsert(sesionBa
 const sg = await statsDe(G);
 check("la gracia puentea la semana fallida: racha 5 (4 + 1), gracia usada", sg.current_streak === 5 && sg.grace_weeks === 0 && r.body.rewards.streak_delta === 5, { stats: sg, rewards: r.body.rewards });
 check("medalla racha_4 por la racha más larga", r.body.rewards.new_achievements.includes("racha_4"), r.body.rewards);
+const G3 = await newUser("gracia3");
+await onboard(G3, `e2e_g3_${tag}`);
+await call(G3.token, "PATCH", "/me", { weekly_goal: 1 });
+await call(G3.token, "POST", "/sync/workouts", { operations: Array.from({ length: 12 }, (_, i) => upsert(sesionBanca(12 - i, 40))) });
+r = await statsDe(G3);
+check("12 semanas cumplidas → racha 12 y gracia topada en 2", r.current_streak === 12 && r.grace_weeks === 2, r);
 
 section("Borrado de cuenta (requiere SUPABASE_SERVICE_ROLE_KEY en la API)");
 const D = await newUser("d");

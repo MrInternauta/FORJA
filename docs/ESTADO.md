@@ -340,7 +340,7 @@ con RLS (lectura del dueño o perfil público, como `exercise_prs`; escritura so
   sigue en su semana. `GET /analytics/prs` sigue mostrando solo los vigentes.
 - Racha con gracia (`computeStreak` en `workouts/streak.ts`, diseño §8): cada 4 semanas cumplidas de la racha
   +1 gracia (`user_stats.grace_weeks`); una semana pasada sin cumplir consume una y la racha sigue (la puenteada no
-  suma); sin gracia, la racha vuelve a 0. La semana en curso nunca rompe ni consume. Sin tope de gracias acumuladas.
+  suma); sin gracia, la racha vuelve a 0. La semana en curso nunca rompe ni consume. Tope: 2 gracias acumuladas.
 - Pruebas: jest `streak.spec.ts` (10) y reglas de logros; e2e:api con PR superado en el resumen, progreso y medalla
   `prs_25` (incluida una corrección que baja el log) y racha con gracia.
 
