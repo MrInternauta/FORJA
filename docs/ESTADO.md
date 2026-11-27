@@ -344,6 +344,17 @@ con RLS (lectura del dueño o perfil público, como `exercise_prs`; escritura so
 - Pruebas: jest `streak.spec.ts` (10) y reglas de logros; e2e:api con PR superado en el resumen, progreso y medalla
   `prs_25` (incluida una corrección que baja el log) y racha con gracia.
 
+### `SesionPildora` con `liveQuery` de Dexie, sin sondeo (2026-11-27)
+
+Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y despertaba la página aunque nada cambiara.
+
+- `observeActiveLocalWorkout(onChange)` en `lib/offline/db.ts` envuelve `liveQuery(getActiveLocalWorkout)` y devuelve
+  la función para dejar de observar. La píldora se suscribe al montar y se desuscribe al desmontar.
+- Dexie avisa al empezar, terminar o descartar la sesión, también desde otra pestaña (BroadcastChannel). El
+  cronómetro de 1 s sigue igual; descartar ya no fuerza `setActive(null)`: llega por `liveQuery`.
+- Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
+  la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -354,7 +365,6 @@ con RLS (lectura del dueño o perfil público, como `exercise_prs`; escritura so
 
 - Drag & drop con handle en el builder (hoy flechas).
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
-- `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
