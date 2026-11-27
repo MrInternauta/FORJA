@@ -11,6 +11,8 @@ const EnvSchema = z.object({
   SUPABASE_URL: z.string().url(),
   /** Solo proyectos legacy HS256. Vacio => se usa el JWKS publico (claves asimetricas). */
   SUPABASE_JWT_SECRET: z.string().optional().or(z.literal("")),
+  /** Opcional: habilita borrar auth.users en DELETE /me (Admin API). Vacio => solo se borra el perfil. */
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().or(z.literal("")),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

@@ -6,6 +6,7 @@ import type { JwtUser } from "../auth/jwt-user";
 import { zodParse } from "../common/zod";
 import { MeService } from "./me.service";
 import { DatabaseService } from "../database/database.service";
+import { SupabaseAdminService } from "../auth/supabase-admin.service";
 
 const PatchMeSchema = z.object({
   display_name: z.string().min(1).max(60).optional(),
@@ -20,6 +21,7 @@ export class MeController {
   constructor(
     private readonly me: MeService,
     private readonly db: DatabaseService,
+    private readonly supabaseAdmin: SupabaseAdminService,
   ) {}
 
   /** Contrato: POST /auth/onboarding (arquitectura §4). */
@@ -57,11 +59,14 @@ export class MeController {
     return { ok: true };
   }
 
-  /** Borrado de cuenta: cascada desde auth.users la ejecuta Supabase; aqui borramos el perfil. */
+  /**
+   * Borrado de cuenta. Primero auth.users (Admin API; su cascada se lleva el perfil): si falla,
+   * 502 y no se borra nada, para poder reintentar. Sin service role key solo se borra el perfil.
+   */
   @Delete("me")
   @HttpCode(204)
   async deleteMe(@CurrentUser() user: JwtUser) {
+    await this.supabaseAdmin.deleteUser(user.id);
     await this.db.query("delete from public.profiles where id = $1", [user.id]);
-    // TODO(fase MVP tardia): borrar tambien auth.users via Admin API de Supabase.
   }
 }
