@@ -287,6 +287,23 @@ en el onboarding como cuenta nueva).
 - El E2E necesita `SUPABASE_SERVICE_ROLE_KEY` en el `.env` de la API (local: `SERVICE_ROLE_KEY` de `supabase status`).
 - **Producción:** definir `SUPABASE_SERVICE_ROLE_KEY` en el proyecto `api` de Vercel (secreta, nunca `NEXT_PUBLIC_`).
 
+### Gráfica de volumen: suma las sesiones offline sin sincronizar (2026-11-27)
+
+Antes, `VolumenSemanal` solo pintaba `GET /analytics/volume` (offline: la última respuesta en cache del SW), así que
+una sesión terminada sin red no aparecía hasta sincronizar, aunque Hoy ya la mostraba.
+
+- `volumenPendienteLocal()` (`lib/progreso/volumen-local.ts`): toma de Dexie los workouts `pending` con `ended_at` y
+  calcula su volumen (kg × reps de series completadas, igual que el backend).
+- Sin doble conteo, gana la copia de red: con `GET /workouts?from=&to=` (rango de esas sesiones, paginando) se
+  descartan las que el servidor ya tiene terminadas (editadas tras sincronizar, o respuesta del sync perdida). Las que
+  el servidor tiene sin terminar o no tiene, cuentan. Sin red no hay cómo saberlo: cuentan las locales.
+- `sumarVolumenLocal()` las agrega en la semana de su `started_at` con `weekKey(date, profile.time_zone)`, antes de
+  `fillWeeks`.
+- Pruebas: vitest `volumen.test.ts` (+3) y `volumen-local.test.ts` (4: sin pendientes no pide red; cuenta las que la
+  red no tiene terminadas; NO cuenta dos veces la que la red ya tiene, con paginación; sin red cuentan las locales).
+  E2E navegador: `/progreso` online 1,380 kg → offline con la sesión sin sincronizar 2,780 kg → tras sincronizar
+  2,780 kg (no se cuenta dos veces).
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -302,7 +319,5 @@ en el onboarding como cuenta nueva).
 - `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
-- La gráfica de volumen no suma sesiones terminadas offline que aún no sincronizan (Hoy sí las fusiona desde
-  Dexie); aparecen al sincronizar.
 - Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
   `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.

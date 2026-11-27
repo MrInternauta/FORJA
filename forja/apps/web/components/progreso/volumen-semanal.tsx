@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/card";
 import { useMe } from "@/components/auth/auth-gate";
 import { api } from "@/lib/api";
 import { GraficaVolumen } from "./grafica-volumen";
-import { fillWeeks, formatKg, weekOverWeek, type RangoSemanas } from "@/lib/progreso/volumen";
+import { fillWeeks, formatKg, sumarVolumenLocal, weekOverWeek, type RangoSemanas } from "@/lib/progreso/volumen";
+import { volumenPendienteLocal } from "@/lib/progreso/volumen-local";
 
 type Estado =
   | { fase: "cargando" }
@@ -18,6 +19,7 @@ type Estado =
 /**
  * Tarjeta "Volumen semanal" de Progreso (wireframe §6.2). Datos de
  * `GET /analytics/volume`; offline el SW sirve la ultima respuesta (Network-First).
+ * Se le suman las sesiones terminadas en el dispositivo que aun no sincronizan.
  */
 export function VolumenSemanal({ weeks }: { weeks: RangoSemanas }) {
   const { profile } = useMe();
@@ -29,10 +31,11 @@ export function VolumenSemanal({ weeks }: { weeks: RangoSemanas }) {
     let vigente = true; // descarta respuestas de un rango anterior
     setEstado({ fase: "cargando" });
     api<WeeklyVolumePoint[]>(`/analytics/volume?weeks=${weeks}`)
-      .then(
-        (points) =>
-          vigente && setEstado({ fase: "listo", points: fillWeeks(points, weeks, profile.time_zone) }),
-      )
+      .then(async (points) => {
+        const locales = await volumenPendienteLocal().catch(() => []);
+        const conLocales = sumarVolumenLocal(points, locales, profile.time_zone);
+        if (vigente) setEstado({ fase: "listo", points: fillWeeks(conLocales, weeks, profile.time_zone) });
+      })
       .catch(() => vigente && setEstado({ fase: "error" }));
     return () => {
       vigente = false;
