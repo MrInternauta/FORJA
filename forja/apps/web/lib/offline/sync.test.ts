@@ -10,9 +10,17 @@ vi.mock("./background-sync", async (importOriginal) => ({
 const apiMock = vi.fn();
 vi.mock("../api", () => ({
   api: (path: string, init?: unknown) => apiMock(path, init),
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    constructor(
+      public readonly status: number,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 
+import { ApiError } from "../api";
 import { discardLocalWorkout, localDb, upsertLocalWorkout } from "./db";
 import { countPendingWorkouts, flushOutbox } from "./sync";
 import { getSyncState, setSyncState } from "./sync-state";
@@ -55,6 +63,21 @@ function okResponse(ids: string[], status: "applied" | "skipped_stale" = "applie
     rewards: { new_prs: [], new_achievements: [], streak_delta: 0 },
   };
 }
+
+/**
+ * Responde el POST de sync con `syncResponse` y `GET /workouts/:id` con `serverCopy`
+ * (una funcion para simular red caida, 404 o una edicion local durante la descarga).
+ */
+function routeApi(syncResponse: SyncResponse, serverCopy: Workout | (() => Promise<Workout>)) {
+  apiMock.mockImplementation(async (path: string) => {
+    if (path === "/sync/workouts") return syncResponse;
+    if (path === `/workouts/${WORKOUT_ID}`) return typeof serverCopy === "function" ? serverCopy() : serverCopy;
+    throw new Error(`ruta inesperada ${path}`);
+  });
+}
+
+/** Rutas pedidas a la API, en orden. */
+const calledPaths = () => apiMock.mock.calls.map((c) => c[0] as string);
 
 /** Operaciones que viajaron en la n-esima llamada al endpoint de sync. */
 function operationsOfCall(n: number): SyncOperation[] {
@@ -141,11 +164,11 @@ describe("flushOutbox", () => {
 
     // Reenvio real del mismo documento (p. ej. tras recuperar la pestana):
     // el servidor lo declara obsoleto y el cliente igualmente limpia el outbox.
-    apiMock.mockResolvedValue(okResponse([WORKOUT_ID], "skipped_stale"));
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), makeWorkout());
     await upsertLocalWorkout(makeWorkout());
     await flushOutbox();
 
-    expect(apiMock).toHaveBeenCalledTimes(1);
+    expect(calledPaths()).toEqual(["/sync/workouts", `/workouts/${WORKOUT_ID}`]);
     expect(await localDb.outbox.count()).toBe(0);
     expect((await localDb.workouts.get(WORKOUT_ID))?.sync_status).toBe("synced");
   });
@@ -232,5 +255,180 @@ describe("flushOutbox", () => {
     expect(getSyncState().online).toBe(false);
     expect(getSyncState().pending).toBe(1);
     vi.stubGlobal("navigator", { onLine: true });
+  });
+});
+
+describe("flushOutbox: skipped_stale (LWW, gana el servidor)", () => {
+  // Otro dispositivo guardo una version mas nueva: menos series y otro titulo.
+  const serverCopy = makeWorkout({
+    title: "Empuje (desde la tablet)",
+    client_updated_at: "2026-07-01T12:00:00.000Z",
+    exercises: [],
+  });
+
+  it("reemplaza la copia local con la del servidor", async () => {
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), serverCopy);
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(calledPaths()).toEqual(["/sync/workouts", `/workouts/${WORKOUT_ID}`]);
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...serverCopy, sync_status: "synced" });
+    expect(await localDb.outbox.count()).toBe(0);
+    expect(getSyncState().phase).toBe("idle");
+  });
+
+  it("NO pisa la copia local si el usuario edito mientras el POST estaba en vuelo", async () => {
+    let releasePost!: (value: SyncResponse) => void;
+    const postSent = new Promise<void>((signalSent) => {
+      apiMock.mockImplementation(async (path: string) => {
+        if (path !== "/sync/workouts") return serverCopy;
+        return new Promise<SyncResponse>((resolve) => {
+          releasePost = resolve;
+          signalSent();
+        });
+      });
+    });
+
+    await upsertLocalWorkout(makeWorkout({ client_updated_at: "2026-07-01T11:00:00.000Z" }));
+    const flushing = flushOutbox();
+    await postSent;
+    const edit = makeWorkout({ title: "Empuje + 1 serie", client_updated_at: "2026-07-01T12:30:00.000Z" });
+    await upsertLocalWorkout(edit);
+
+    releasePost(okResponse([WORKOUT_ID], "skipped_stale"));
+    await flushing;
+
+    // La edicion local sigue intacta y pendiente: viaja en la siguiente pasada y el LWW del servidor decide.
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...edit, sync_status: "pending" });
+    expect((await localDb.outbox.toArray()).map((e) => e.client_updated_at)).toEqual(["2026-07-01T12:30:00.000Z"]);
+
+    routeApi(okResponse([WORKOUT_ID]), serverCopy);
+    await flushOutbox();
+    expect((operationsOfCall(2)[0] as { workout: Workout }).workout.title).toBe("Empuje + 1 serie");
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...edit, sync_status: "synced" });
+  });
+
+  it("NO pisa la copia local si el usuario edito mientras se descargaba la del servidor", async () => {
+    const edit = makeWorkout({ title: "Editada durante el GET", client_updated_at: "2026-07-01T12:30:00.000Z" });
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      await upsertLocalWorkout(edit);
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...edit, sync_status: "pending" });
+    expect(await localDb.outbox.count()).toBe(1);
+    expect((await localDb.outbox.toArray())[0].client_updated_at).toBe("2026-07-01T12:30:00.000Z");
+  });
+
+  it("NO resucita un workout descartado mientras se descargaba la del servidor", async () => {
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      await discardLocalWorkout(WORKOUT_ID);
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toBeUndefined();
+    expect((await localDb.outbox.toArray()).map((e) => e.op)).toEqual(["delete"]);
+  });
+
+  it("NO pisa lo que otra pestana edito y ya sincronizo durante la descarga", async () => {
+    const otherTab = makeWorkout({ title: "Desde otra pestana", client_updated_at: "2026-07-01T12:30:00.000Z" });
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      // La otra pestana comparte Dexie: su flush ya confirmo y limpio su entrada.
+      await localDb.workouts.put({ ...otherTab, sync_status: "synced" });
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...otherTab, sync_status: "synced" });
+    expect(await localDb.outbox.count()).toBe(0);
+  });
+
+  it("NO resucita lo que otra pestana descarto y ya sincronizo durante la descarga", async () => {
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      await localDb.workouts.delete(WORKOUT_ID);
+      return serverCopy;
+    });
+    await upsertLocalWorkout(makeWorkout());
+
+    await flushOutbox();
+
+    expect(await localDb.workouts.get(WORKOUT_ID)).toBeUndefined();
+    expect(await localDb.outbox.count()).toBe(0);
+  });
+
+  it("si la descarga falla, nada se pierde: sigue en el outbox y el siguiente flush la reintenta", async () => {
+    const OTHER_ID = "55555555-5555-4555-8555-555555555555";
+    const otherRewards = { new_prs: [], new_achievements: ["primera_sesion"], streak_delta: 1 };
+    apiMock.mockImplementation(async (path: string) => {
+      if (path === "/sync/workouts") {
+        return {
+          results: [
+            { id: WORKOUT_ID, status: "skipped_stale" },
+            { id: OTHER_ID, status: "applied" },
+          ],
+          rewards: otherRewards,
+        } satisfies SyncResponse;
+      }
+      throw new Error("network down");
+    });
+    const local = makeWorkout();
+    await upsertLocalWorkout(local);
+    await upsertLocalWorkout(makeWorkout({ id: OTHER_ID }));
+
+    const first = await flushOutbox();
+
+    // El aplicado se confirma y conserva sus recompensas; el obsoleto espera intacto.
+    expect(first).toEqual(otherRewards);
+    expect(getSyncState().phase).toBe("error");
+    expect((await localDb.outbox.toArray()).map((e) => e.workout_id)).toEqual([WORKOUT_ID]);
+    expect((await localDb.workouts.get(OTHER_ID))?.sync_status).toBe("synced");
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...local, sync_status: "pending" });
+
+    apiMock.mockReset();
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), serverCopy);
+    await flushOutbox();
+
+    expect(await localDb.outbox.count()).toBe(0);
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...serverCopy, sync_status: "synced" });
+  });
+
+  it("NO acepta una copia mas vieja que la enviada (cache del SW sin red): se reintenta", async () => {
+    const cached = makeWorkout({ title: "Vieja en cache", client_updated_at: "2026-07-01T10:30:00.000Z" });
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), cached);
+    const local = makeWorkout();
+    await upsertLocalWorkout(local);
+
+    await flushOutbox();
+
+    expect(getSyncState().phase).toBe("error");
+    expect(await localDb.outbox.count()).toBe(1);
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...local, sync_status: "pending" });
+
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), serverCopy);
+    await flushOutbox();
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...serverCopy, sync_status: "synced" });
+  });
+
+  it("404 (borrado en otro dispositivo): confirma y conserva la copia local", async () => {
+    routeApi(okResponse([WORKOUT_ID], "skipped_stale"), async () => {
+      throw new ApiError(404, "API 404");
+    });
+    const local = makeWorkout();
+    await upsertLocalWorkout(local);
+
+    await flushOutbox();
+
+    expect(await localDb.outbox.count()).toBe(0);
+    expect(await localDb.workouts.get(WORKOUT_ID)).toEqual({ ...local, sync_status: "synced" });
+    expect(getSyncState().phase).toBe("idle");
   });
 });

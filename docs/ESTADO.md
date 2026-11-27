@@ -287,6 +287,28 @@ en el onboarding como cuenta nueva).
 - El E2E necesita `SUPABASE_SERVICE_ROLE_KEY` en el `.env` de la API (local: `SERVICE_ROLE_KEY` de `supabase status`).
 - **Producción:** definir `SUPABASE_SERVICE_ROLE_KEY` en el proyecto `api` de Vercel (secreta, nunca `NEXT_PUBLIC_`).
 
+### `skipped_stale` en el cliente: gana la copia del servidor (2026-11-27)
+
+Antes, cuando el sync respondía `skipped_stale` (otro dispositivo guardó una versión más nueva), el cliente limpiaba
+el outbox pero se quedaba con su copia local vieja marcada como `synced`.
+
+- API: `GET /workouts/:id` (ya estaba en el contrato de `arquitectura.md` §4) devuelve el documento completo con la
+  forma de `WorkoutSchema`; 404 si no existe o es de otro usuario.
+- `flushOutbox`: los `applied` se confirman como antes; para los `skipped_stale` primero se descarga la copia del
+  servidor y, en la MISMA transacción de Dexie que borra sus `seq`, reemplaza la local **solo si ya no queda ninguna
+  entrada en el outbox** para ese workout. Una edición (o un descarte) hecha durante el POST o durante la descarga
+  gana: viaja en la siguiente pasada y decide el LWW del servidor.
+- Si la descarga falla por red, esas entradas siguen en el outbox: la siguiente pasada las reenvía (el servidor vuelve a
+  responder `skipped_stale`, sin recompensas) y reintenta. Lo mismo si la copia es MÁS VIEJA que la enviada (la cache
+  NetworkFirst del SW sin red): `skipped_stale` garantiza que la real es >= la enviada. Un 404 (borrado en otro
+  dispositivo) confirma y conserva la copia local.
+- Varias pestañas comparten Dexie pero no el `inFlight`: tampoco se reemplaza si la local ya no es la que viajó
+  (otra pestaña la editó o la descartó y ya la sincronizó durante la descarga).
+- Pruebas: vitest `sync.test.ts` 17/17, con 9 casos nuevos (reemplazo; NO pisa si se editó durante el POST o durante
+  la descarga; NO resucita un descarte; NO acepta una copia vieja de cache; NO pisa ni resucita lo que otra pestaña ya
+  sincronizó; fallo de red sin pérdida y con las recompensas del lote; 404). E2E API 121/121 (`GET /workouts/:id`: documento igual al último upsert aplicado, 404 ajeno o
+  inexistente, 400 sin uuid) y navegador 36/36.
+
 ### Gráfica de volumen: suma las sesiones offline sin sincronizar (2026-11-27)
 
 Antes, `VolumenSemanal` solo pintaba `GET /analytics/volume` (offline: la última respuesta en cache del SW), así que
@@ -304,6 +326,7 @@ una sesión terminada sin red no aparecía hasta sincronizar, aunque Hoy ya la m
   E2E navegador: `/progreso` online 1,380 kg → offline con la sesión sin sincronizar 2,780 kg → tras sincronizar
   2,780 kg (no se cuenta dos veces).
 
+||||||| b1aac16
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -314,7 +337,6 @@ una sesión terminada sin red no aparecía hasta sincronizar, aunque Hoy ya la m
 
 - Drag & drop con handle en el builder (hoy flechas).
 - `grace_weeks` de la racha y logro `prs_25` requieren log de eventos de PR (TODOs en `workouts.service.ts`).
-- `skipped_stale` en cliente: traer copia del servidor y reemplazar la local (TODO en `lib/offline/sync.ts`).
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - `SesionPildora` sondea Dexie cada 3 s; con `liveQuery` de Dexie sería reactivo y sin polling.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
