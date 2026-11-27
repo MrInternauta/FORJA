@@ -355,6 +355,17 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Pruebas: vitest `db.test.ts` (+2: emite al empezar/terminar/descartar; al desuscribirse no avisa). E2E navegador:
   la píldora aparece al salir de `/sesion` y desaparece en < 1.5 s cuando otra pestaña descarta la sesión.
 
+### zod fuera de las pantallas que no validan (2026-11-27)
+
+- Causa: `dist-esm/package.json` (el marcador `type: module` que escribe `scripts/write-esm-marker.mjs`) es el
+  package.json más cercano a los módulos ESM de `@forja/shared`, y webpack lee `sideEffects` de ahí, no de la raíz
+  del paquete. Sin `sideEffects: false` en el marcador, importar un enum o `PLAN_LIMITS` arrastraba todos los esquemas
+  y zod. El marcador ahora lleva `sideEffects: false`.
+- `NuevoEjercicioForm` (solo ADMIN) se carga con `next/dynamic` en `/ejercicios`.
+- First Load JS: `/ejercicios` 219 → 204 kB, `/entrenar` 220 → 205 kB, `/sesion` 223 → 209 kB; `/onboarding` y el
+  builder de rutinas (las que validan con zod en el cliente) siguen llevándolo. Ya no hace falta preferir
+  `import type` por miedo a zod: importar valores de `@forja/shared` solo trae lo que se usa.
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar las migraciones 0005 y 0006 en el Supabase de producción
@@ -367,5 +378,3 @@ Antes la píldora leía Dexie cada 3 s: tardaba hasta 3 s en reaccionar y desper
 - Splash screens de iOS (`apple-touch-startup-image`): requiere generar el set de imágenes por tamaño de pantalla.
 - Notificación del `TimerDescanso` solo con la pestaña viva; con el SW podría dispararse en segundo plano.
 - CI: paso "push & deploy" comentado hasta decidir hosting.
-- Importar VALORES de `@forja/shared` en el cliente puede arrastrar zod (+14 kB medido en `/progreso` con
-  `ACHIEVEMENT_METRICS`) pese a `sideEffects: false`. Preferir `import type`; revisar el build ESM de shared.
