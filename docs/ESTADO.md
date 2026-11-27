@@ -236,6 +236,20 @@ terminada ONLINE nunca se celebraban (el resumen de `/sesion` solo muestra PRs y
   racha, bajada sin pendiente), E2E navegador **34/34** (medallas en Hoy sin repetir PRs, nada se repite al recargar,
   PR diferido al reconectar).
 
+### `pnpm dev` carga el `.env` sin choque de puertos (2026-11-27)
+
+Antes `pnpm dev` no servía tal cual: Turbo 2 (modo estricto) descarta las variables no declaradas en `turbo.json`,
+la API nunca leía `.env` (salía con "Variables de entorno invalidas: DATABASE_URL, SUPABASE_URL") y, si se exportaba
+el `.env` a mano, el `PORT=3001` de la API movía también a Next.js fuera de `:3000`.
+
+- `apps/api`: `nest start --watch --exec "node --env-file=../../.env"`; `apps/web`:
+  `node --env-file=../../.env node_modules/next/dist/bin/next dev -p 3000`. `--env-file` (Node ≥ 20.6) nunca pisa
+  variables ya exportadas.
+- Verificado con `pnpm dev` a secas sobre `supabase start`: web `:3000` (la anon key llega al bundle), API `:3001`,
+  **E2E API 101/101**; con el `.env` exportado (el workaround viejo) siguen en `:3000`/`:3001`; `PORT=3005` exportado
+  gana al archivo; el watch de la API reinicia tras editar sin `EADDRINUSE`.
+- Requisito: `forja/.env` debe existir (`cp .env.example .env`); sin él `node` aborta con "not found".
+
 ## Después (en orden)
 
 1. Pasada manual con VoiceOver/TalkBack y aplicar la migración 0005 en el Supabase de producción.

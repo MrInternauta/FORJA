@@ -83,6 +83,12 @@ cp .env.example .env    # rellena NEXT_PUBLIC_SUPABASE_ANON_KEY con la anon key 
 pnpm dev                # web en :3000, api en :3001 (prefijo /v1)
 ```
 
+`pnpm dev` lee `forja/.env` por su cuenta: cada app lo carga con `node --env-file`
+(Turbo 2 en modo estricto no reenvía variables no declaradas, así que exportarlas
+en la shell no llega a las apps). Las variables ya exportadas tienen prioridad
+sobre el archivo. La web se fija en `:3000` con `-p`, así que el `PORT=3001` del
+`.env` (que es de la API) ya no la mueve de puerto.
+
 ### Base de datos: dos modos (misma `DATABASE_URL`)
 
 Ambos exponen Postgres en `127.0.0.1:54322`, así que la `DATABASE_URL` del `.env` sirve igual en los dos:
@@ -127,7 +133,7 @@ n.º 3 de `docs/arquitectura.md`). El job `image` de CI ya construye su imagen O
 
 | Comando | Qué hace |
 |---|---|
-| `pnpm dev` | web + api en watch |
+| `pnpm dev` | web + api en watch (cada app carga `forja/.env`) |
 | `pnpm build` | build de shared → api → web (orquestado por turbo) |
 | `pnpm typecheck` | TS estricto en los tres paquetes |
 | `pnpm test` | Jest en api (RolesGuard) + Vitest en web (outbox/sync sobre Dexie real) |
