@@ -193,15 +193,21 @@ export class AnalyticsService {
       [userId, bounds.week_start, tz],
     );
 
+    // Del log de eventos (no de exercise_prs): un PR de la semana superado despues sigue apareciendo.
+    // Si un ejercicio rompio varios en la semana, solo el mejor.
     const prs = await this.db.query<WeeklySummary["prs"][number]>(
-      `select p.exercise_id, e.name as exercise_name, p.weight_kg::float8 as weight_kg, p.reps::int as reps
-       from public.exercise_prs p
-       join public.exercises e on e.id = p.exercise_id
-       join public.workouts w on w.id = p.workout_id
-       where p.user_id = $1
-         and w.started_at >= $2::date::timestamp at time zone $3
-         and w.started_at < ($2::date + 7)::timestamp at time zone $3
-       order by e.name`,
+      `select * from (
+         select distinct on (p.exercise_id)
+                p.exercise_id, e.name as exercise_name, p.weight_kg::float8 as weight_kg, p.reps::int as reps
+         from public.pr_events p
+         join public.exercises e on e.id = p.exercise_id
+         join public.workouts w on w.id = p.workout_id
+         where p.user_id = $1
+           and w.started_at >= $2::date::timestamp at time zone $3
+           and w.started_at < ($2::date + 7)::timestamp at time zone $3
+         order by p.exercise_id, p.weight_kg desc, p.reps desc
+       ) best
+       order by exercise_name`,
       [userId, bounds.week_start, tz],
     );
 

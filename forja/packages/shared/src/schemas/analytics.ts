@@ -103,7 +103,7 @@ export const WeeklySummarySchema = z.object({
   volume_kg: z.number(),
   sets: z.number().int(),
   previous_volume_kg: z.number(),
-  /** PRs vigentes cuya sesion cayo en la semana (un PR superado despues ya no aparece). */
+  /** PRs rotos en sesiones de la semana (log de eventos: aunque se superaran despues), el mejor por ejercicio. */
   prs: z.array(
     z.object({
       exercise_id: z.string().uuid(),

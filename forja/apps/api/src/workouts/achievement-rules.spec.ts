@@ -15,9 +15,10 @@ describe("eligibleAchievements (reglas compartidas)", () => {
     expect(eligibleAchievements({ ...zero, prs: 1 })).toEqual(["primer_pr"]);
   });
 
-  it("prs_25 no se otorga mientras no haya log de eventos de PR", () => {
-    expect(ACHIEVEMENT_RULES.prs_25.measurable).toBe(false);
-    expect(eligibleAchievements({ workouts: 1e6, volume_kg: 1e9, streak_weeks: 1e3, prs: 1e3 })).not.toContain("prs_25");
+  it("prs_25 es medible: se otorga al romper 25 PRs (log de eventos)", () => {
+    expect(ACHIEVEMENT_RULES.prs_25.measurable).toBeUndefined();
+    expect(eligibleAchievements({ ...zero, prs: 24 })).toEqual(["primer_pr"]);
+    expect(eligibleAchievements({ ...zero, prs: 25 })).toEqual(["primer_pr", "prs_25"]);
   });
 
   it("cubre exactamente los 15 logros sembrados", () => {
