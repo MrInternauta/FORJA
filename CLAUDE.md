@@ -49,7 +49,7 @@ El cliente habla con Supabase SOLO para auth y media; **todo dato de negocio pas
 
 ```bash
 pnpm install          # deps
-pnpm dev              # web :3000 + api :3001 (prefijo /v1) en watch
+pnpm dev              # web :3000 + api :3001 (prefijo /v1) en watch; cada app carga .env con node --env-file
 pnpm build            # shared -> api -> web (turbo)
 pnpm typecheck        # TS estricto en los 3 paquetes
 pnpm test             # jest (api) + vitest (web: sync/outbox con fake-indexeddb)

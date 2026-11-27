@@ -253,6 +253,20 @@ siguiente. Ahora se cortan en el lunes 00:00 de la zona del usuario.
 - Pruebas: E2E de API con usuarios CDMX y UTC (volumen, resumen, distribución, racha, trigger por RLS);
   vitest de `weekKey`/`fillWeeks` con zona.
 
+### `pnpm dev` carga el `.env` sin choque de puertos (2026-11-27)
+
+Antes `pnpm dev` no servía tal cual: Turbo 2 (modo estricto) descarta las variables no declaradas en `turbo.json`,
+la API nunca leía `.env` (salía con "Variables de entorno invalidas: DATABASE_URL, SUPABASE_URL") y, si se exportaba
+el `.env` a mano, el `PORT=3001` de la API movía también a Next.js fuera de `:3000`.
+
+- `apps/api`: `nest start --watch --exec "node --env-file=../../.env"`; `apps/web`:
+  `node --env-file=../../.env node_modules/next/dist/bin/next dev -p 3000`. `--env-file` (Node ≥ 20.6) nunca pisa
+  variables ya exportadas.
+- Verificado con `pnpm dev` a secas sobre `supabase start`: web `:3000` (la anon key llega al bundle), API `:3001`,
+  **E2E API 101/101**; con el `.env` exportado (el workaround viejo) siguen en `:3000`/`:3001`; `PORT=3005` exportado
+  gana al archivo; el watch de la API reinicia tras editar sin `EADDRINUSE`.
+- Requisito: `forja/.env` debe existir (`cp .env.example .env`); sin él `node` aborta con "not found".
+
 ### Borrado de cuenta completo: `DELETE /me` borra también `auth.users` (2026-11-27)
 
 Antes `DELETE /me` borraba el perfil pero el usuario seguía en `auth.users`: podía volver a iniciar sesión (y caía
